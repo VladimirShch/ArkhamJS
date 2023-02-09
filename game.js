@@ -1,3 +1,5 @@
+"use strict"
+
 class City
 {
 	constructor(imageSource, x, y)
@@ -11,9 +13,9 @@ class City
 
 class Character
 {
-	constructor(characterFolder, x, y)
+	constructor(characterName, x, y)
 	{
-		this.characterFolder = characterFolder;
+		this.characterName = characterName;
 		this.x = x;
 		this.y = y;
 		this.lastX = x;
@@ -23,7 +25,7 @@ class Character
 		this.endingFrame = 4 * this.framesPerImage; // Потому что 4 изображения всего на анимацию
 		this.frame = this.startingFrame;
 		this.image = new Image();
-		this.image.src = this.characterFolder + "/stand.png";
+		this.image.src = `${this.characterName}/stand.png`;
 		
 		//this.rotation = 0;
 	}
@@ -64,13 +66,13 @@ class Character
 			//if(this.frames >= this.framesPerImage)
 			//{
 				this.frame = this.startingFrame;
-				this.image.src = this.characterFolder + "/stand.png";
+				this.image.src = this.characterName + "/stand.png";
 			//}			
 		}
 		else
 		{
-			this.image.src  = this.characterFolder + "/Move/"+ (this.frame/this.framesPerImage + 1) + ".png";
-			if(this.frame == this.endingFrame)
+			this.image.src  = `${this.characterName}/Move/${(this.frame/this.framesPerImage + 1)}.png`;
+			if(this.frame == this.endingFrame - 1)
 			{
 				this.frame = this.startingFrame;
 			}
@@ -85,22 +87,22 @@ class Character
 	}	
 }
 
-var canvas = document.getElementById("canvas");
-var context = canvas.getContext("2d");
+let canvas = document.getElementById("canvas");
+let context = canvas.getContext("2d");
 
 Resize();
 
 window.addEventListener("resize", Resize);
 window.addEventListener("keydown", function (e) {KeyDown(e);});
 
-var city = new City("Map_3.png", 0, 0);
-var character = new Character("Michael", 20, 20);
+let city = new City("Map_3.png", 0, 0);
+let character = new Character("Michael", 20, 20);
 
 Start();
 
 function Start()
 {
-	timer = setInterval(Update, 1000/5);
+	const timer = setInterval(Update, 1000/5);
 }
 
 function Resize()
