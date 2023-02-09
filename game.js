@@ -12,7 +12,7 @@ class City
 }
 
 class Character
-{
+{	
 	constructor(characterName, x, y)
 	{
 		this.characterName = characterName;
@@ -26,7 +26,8 @@ class Character
 		this.frame = this.startingFrame;
 		this.image = new Image();
 		this.image.src = `${this.characterName}/stand.png`;
-		
+		this.angle = "90";
+		this.image.onload = () => this.image.style.transform = `rotate(${this.angle}deg)`;
 		//this.rotation = 0;
 	}
 	
@@ -38,14 +39,9 @@ class Character
 			//this.rotation = 0;
 			this.x++;
 		}
-		else if(direction == "u")
-		{
-			//this.image.style.transform = "rotate(90deg)";
-			//this.rotation = 90;
-			this.y--;
-		}
 		else if(direction == "l")
 		{
+			this.angle = '180';
 			//this.image.style.transform = "rotate(180deg)";
 			//this.rotation = 180;
 			this.x--;
@@ -56,6 +52,12 @@ class Character
 			//this.rotation = -90;
 			this.y++;
 		}
+		else if(direction == "u")
+		{
+			//this.image.style.transform = "rotate(90deg)";
+			//this.rotation = 90;
+			this.y--;
+		}		
 	}
 	
 	SetAnimation()
@@ -66,7 +68,7 @@ class Character
 			//if(this.frames >= this.framesPerImage)
 			//{
 				this.frame = this.startingFrame;
-				this.image.src = this.characterName + "/stand.png";
+				this.image.src = `${this.characterName}/stand.png`;
 			//}			
 		}
 		else
@@ -74,11 +76,11 @@ class Character
 			this.image.src  = `${this.characterName}/Move/${(this.frame/this.framesPerImage + 1)}.png`;
 			if(this.frame == this.endingFrame - 1)
 			{
-				this.frame = this.startingFrame;
+				this.frame = this.startingFrame;				
 			}
 			else
 			{
-				this.frame++;
+				this.frame++;				
 			}
 			
 			this.lastX = this.x;
@@ -92,17 +94,12 @@ let context = canvas.getContext("2d");
 
 Resize();
 
-window.addEventListener("resize", Resize);
-window.addEventListener("keydown", function (e) {KeyDown(e);});
+characterSelection();
 
-let city = new City("Map_3.png", 0, 0);
-let character = new Character("Michael", 20, 20);
 
-Start();
-
-function Start()
+function Start(city, character)
 {
-	const timer = setInterval(Update, 1000/5);
+	const timer = setInterval(() => Update(city, character), 1000/5);
 }
 
 function Resize()
@@ -111,7 +108,7 @@ function Resize()
 	canvas.height = window.innerHeight;
 }
 
-function KeyDown(e)
+function KeyDown(e, character)
 {
 	switch(e.keyCode)
 	{
@@ -134,7 +131,7 @@ function KeyDown(e)
 	}
 }
 
-function Update()
+function Update(city, character)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
 	
@@ -170,3 +167,49 @@ function Update()
 	//context.restore();
 }
 
+function characterSelection(){
+	const selectText = new Image();
+	selectText.src = "Select_character.png";
+	selectText.onload = () => context.drawImage(selectText, canvas.width / 2 - 90, 10);
+
+	const markImage = new Image();
+	markImage.src = "Mark/mark_charlist.png";
+	markImage.onload = () => context.drawImage(markImage, canvas.width / 2 - markImage.width / 2, 50);
+	
+	const amandaImage = new Image();
+	amandaImage.src = "Amanda/amanda_charlist.png";
+	amandaImage.onload = () => context.drawImage(amandaImage, canvas.width/2 - amandaImage.width / 2, 50 + markImage.height + 10);
+	
+	const michaelImage = new Image();
+	michaelImage.src = "Michael/michael_charlist.png";
+	michaelImage.onload = () => context.drawImage(michaelImage, canvas.width/2 - michaelImage.width / 2, 50 + markImage.height + amandaImage.height + 20);
+
+	canvas.onclick = (e) => {
+		if(e.x >=  canvas.width / 2 - markImage.width / 2 && e.x <=  canvas.width / 2 + markImage.width / 2 && 
+			e.y >= 50 && e.y <= 50 + markImage.height){				
+			StartGame("Mark");
+		}
+		else if(e.x >=  canvas.width/2 - amandaImage.width / 2 && e.x <=  canvas.width/2 + amandaImage.width / 2 && 
+			e.y >= 50 + markImage.height + 10 && e.y <= 50 + markImage.height + 10 + amandaImage.height){
+			StartGame("Amanda");
+		}
+		else if(e.x >= michaelImage, canvas.width/2 - michaelImage.width / 2 && michaelImage, canvas.width/2 + michaelImage.width / 2 && 
+			e.y >=50 + markImage.height + amandaImage.height + 20 && e.y <= 50 + markImage.height + amandaImage.height + 20 + michaelImage.height){
+			StartGame("Michael");
+		}
+	};
+	
+}
+
+
+function StartGame(characterName){		
+	canvas.onclick = null;
+
+	let city = new City("Map_3.png", 0, 0);
+	let character = new Character(characterName, 500, 300);
+	
+	window.addEventListener("resize", Resize);
+	window.addEventListener("keydown", (e) => KeyDown(e, character));
+
+	Start(city, character);
+}
