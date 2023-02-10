@@ -28,7 +28,7 @@ class Character
 		this.image.src = `${this.characterName}/stand.png`;
 		this.angle = "90";
 		this.image.onload = () => this.image.style.transform = `rotate(${this.angle}deg)`;
-		//this.rotation = 0;
+		this.rotation = 0; // радианы
 	}
 	
 	Move(direction)
@@ -43,19 +43,19 @@ class Character
 		{
 			this.angle = '180';
 			//this.image.style.transform = "rotate(180deg)";
-			//this.rotation = 180;
+			//this.rotation = 3,14159;
 			this.x--;
 		}
 		else if(direction == "d")
 		{
 			//this.image.style.transform = "rotate(270deg)";
-			//this.rotation = -90;
+			//this.rotation = -1,5708;
 			this.y++;
 		}
 		else if(direction == "u")
 		{
 			//this.image.style.transform = "rotate(90deg)";
-			//this.rotation = 90;
+			//this.rotation = 1,5708;
 			this.y--;
 		}		
 	}
@@ -151,7 +151,8 @@ function Update(city, character)
 	character.SetAnimation();
 	//context.save();
 	//context.translate(canvas.width/2, canvas.height/2);
-	//context.rotate(character.rotation*Math.PI/180);
+	//context.translate(character.x, character.y);
+	//context.rotate(character.rotation);
 	context.drawImage
 	(
 		character.image,
@@ -164,6 +165,8 @@ function Update(city, character)
 		character.image.width,
 		character.image.height
 	);
+	//context.rotate(-character.rotation);
+	//context.translate(-character.x, -character.y);
 	//context.restore();
 }
 
