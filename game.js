@@ -96,26 +96,45 @@ class Character
 	}	
 }
 
+class Mist{
+	constructor(){
+		this.image = new Image();
+		this.image.src = "Mist_large.png";
+		this.startingPoint = 0;
+	}
+
+	draw(context){
+		if(this.startingPoint >= 3000) // размер изображения - 4000, размер экрана - 1000. Итого когда будет последний помещающийся на экран кусок - отмотать
+		{
+			this.startingPoint = 0
+		}
+		else{
+			this.startingPoint++;
+		}
+		context.drawImage(this.image, this.startingPoint, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
+	}
+}
+
 let canvas = document.getElementById("canvas");
 let context = canvas.getContext("2d");
 
-Resize();
+resize();
 
 characterSelection();
 
 
-function Start(city, character)
+function start(city, character, mist)
 {
-	const timer = setInterval(() => Update(city, character), 1000/5);
+	const timer = setInterval(() => Update(city, character, mist), 1000/5);
 }
 
-function Resize()
+function resize()
 {
 	canvas.width = window.innerWidth;
 	canvas.height = window.innerHeight;
 }
 
-function KeyDown(e, character)
+function keyDown(e, character)
 {
 	switch(e.keyCode)
 	{
@@ -138,7 +157,7 @@ function KeyDown(e, character)
 	}
 }
 
-function Update(city, character)
+function Update(city, character, mist)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
 	
@@ -175,6 +194,8 @@ function Update(city, character)
 	//context.rotate(-character.rotation);
 	//context.translate(-character.x, -character.y);
 	//context.restore();
+
+	mist.draw(context);
 }
 
 function characterSelection(){
@@ -197,29 +218,30 @@ function characterSelection(){
 	canvas.onclick = (e) => {
 		if(e.x >=  canvas.width / 2 - markImage.width / 2 && e.x <=  canvas.width / 2 + markImage.width / 2 && 
 			e.y >= 50 && e.y <= 50 + markImage.height){				
-			StartGame("Mark");
+			startGame("Mark");
 		}
 		else if(e.x >=  canvas.width/2 - amandaImage.width / 2 && e.x <=  canvas.width/2 + amandaImage.width / 2 && 
 			e.y >= 50 + markImage.height + 10 && e.y <= 50 + markImage.height + 10 + amandaImage.height){
-			StartGame("Amanda");
+			startGame("Amanda");
 		}
 		else if(e.x >= michaelImage, canvas.width/2 - michaelImage.width / 2 && michaelImage, canvas.width/2 + michaelImage.width / 2 && 
 			e.y >=50 + markImage.height + amandaImage.height + 20 && e.y <= 50 + markImage.height + amandaImage.height + 20 + michaelImage.height){
-			StartGame("Michael");
+			startGame("Michael");
 		}
 	};
 	
 }
 
 
-function StartGame(characterName){		
+function startGame(characterName){		
 	canvas.onclick = null;
 
 	let city = new City("Map_3.png", 0, 0);
 	let character = new Character(characterName, 500, 300);
-	
-	window.addEventListener("resize", Resize);
-	window.addEventListener("keydown", (e) => KeyDown(e, character));
+	const mist = new Mist();
 
-	Start(city, character);
+	window.addEventListener("resize", resize);
+	window.addEventListener("keydown", (e) => keyDown(e, character));
+
+	start(city, character, mist);
 }
