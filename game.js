@@ -109,7 +109,7 @@ class Mist{
 			this.startingPoint = 0
 		}
 		else{
-			this.startingPoint++;
+			this.startingPoint += 2;
 		}
 		context.drawImage(this.image, this.startingPoint, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
 	}
@@ -125,7 +125,7 @@ characterSelection();
 
 function start(city, character, mist)
 {
-	const timer = setInterval(() => Update(city, character, mist), 1000/5);
+	const timer = setInterval(() => update(city, character, mist), 1000/5);
 }
 
 function resize()
@@ -157,19 +157,19 @@ function keyDown(e, character)
 	}
 }
 
-function Update(city, character, mist)
+function update(city, character, mist)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
-	
+	moveMapIfNeeded(city, character);
 	context.drawImage
 	(
 		city.image,
-		0,
-		0,
-		1000,
-		800,
 		city.x,
 		city.y,
+		1000,
+		800,
+		0,
+		0,
 		canvas.width,
 		canvas.height
 	);
@@ -198,6 +198,52 @@ function Update(city, character, mist)
 	mist.draw(context);
 }
 
+function moveMapIfNeeded(city, character){
+	// Всё костыли - переделать!!! получается, что шагаем, координаты прибавляем мы на событие нажатия клавиши, а перерисовываем и двигаем карту - по таймеру
+	if(character.x !== character.lastX || character.y !== character.lastY){
+		// Идем вправо
+		if(character.previousDirection === "r" && character.x >= canvas.width / 3 * 2 && city.x + canvas.width <= city.image.width){
+			const dif = character.x - character.lastX;
+			character.x -= dif;
+			character.lastX -= dif;
+			city.x += dif;
+			if(city.x + canvas.width > city.image.width){
+				city.x = city.image.width - canvas.width;
+			}
+		}
+		// Идем влево
+		if(character.previousDirection === "l" && character.x <= canvas.width / 3 && city.x > 0){
+			const dif = character.lastX - character.x;
+			character.x += dif;
+			character.lastX += dif;
+			city.x -= dif;
+			if(city.x < 0){
+				city.x = 0;
+			}
+		}
+		// Идем вниз
+		if(character.previousDirection === "d" && character.y >= canvas.height / 3 * 2 && city.y + canvas.height <= city.image.height){
+			const dif = character.y - character.lastY;
+			character.y -= dif;
+			character.lastY -= dif;
+			city.y += dif;
+			if(city.y + canvas.height > city.image.height){
+				city.y = city.image.height - canvas.height;
+			}
+		}
+		// Идем вверх
+		if(character.previousDirection === "u" && character.y <= canvas.height / 3 && city.y > 0){
+			const dif = character.lastY - character.y;
+			character.y += dif;
+			character.lastY += dif;
+			city.y -= dif;
+			if(city.y < 0){
+				city.y = 0;
+			}
+		}
+	}
+	
+}
 function characterSelection(){
 	const selectTextImage = new Image();
 	selectTextImage.src = "Select_character.png";
