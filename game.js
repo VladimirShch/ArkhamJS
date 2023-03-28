@@ -115,7 +115,7 @@ class Mist{
 	}
 }
 
-let canvas = document.getElementById("canvas");
+let canvas = document.querySelector("#canvas");
 let context = canvas.getContext("2d");
 
 resize();
