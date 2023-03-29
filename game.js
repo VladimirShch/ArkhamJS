@@ -256,89 +256,91 @@ function characterSelection(){
 		  imageLeftPosition = canvas.width / 2 - charSheetWidth / 2,
 		  margin = 10;
 	
-	const characters = ["Mark", "Amanda", "Michael"];
+	const characterNames = ["Mark", "Amanda", "Michael"];
 	let selectedCharacter = 0;
+	let imagesLoaded = 0;
+	
+	const headerImage = new Image();
+	headerImage.onload = onImageLoaded;
+	headerImage.src = "Select_character.png";
+
+	const selectedCharacterImage = new Image();
+	selectedCharacterImage.onload = onImageLoaded;
+	selectedCharacterImage.src = "selection_mark.png";						
+
+	let characters = [];
+	characterNames.forEach((characterName, number) =>{
+		const character = {
+			name: characterName
+		};
+
+		characters.push(character);
+
+		character.image = new Image();
+		character.image.onload = onImageLoaded;
+		character.image.src = `${characterName}/charsheet.png`;	
+	});
+
+	function onImageLoaded(){
+		imagesLoaded++;
+		if(imagesLoaded === characterNames.length + 2){
+			prepareMenu();
+		}
+	}
 
 	function drawMenu(){
-		const selectTextImage = new Image();
-		selectTextImage.src = "Select_character.png";
-		selectTextImage.onload = () => context.drawImage(selectTextImage, canvas.width / 2 - titleWidth / 2, 0);
-
-		characters.forEach((charName, number) => {
-			const image = new Image();
-			image.src = `${charName}/charsheet.png`;
-			image.onload = () => context.drawImage(image, imageLeftPosition, verticalStartingPosition + (charSheetHeight + margin) * number);
-			
+		
+		context.drawImage(headerImage, canvas.width / 2 - titleWidth / 2, 0);
+		
+		characters.forEach((character, number) => {
+			context.drawImage(character.image, imageLeftPosition, verticalStartingPosition + (charSheetHeight + margin) * number);
+						
 			if(selectedCharacter === number){
-				const selectedCharacterImage = new Image();
-				selectedCharacterImage.src = "selection_mark.png";
-				selectedCharacterImage.onload = () => context.drawImage(selectedCharacterImage, imageLeftPosition - 10, verticalStartingPosition + (charSheetHeight + margin) * number - 10);
+				context.drawImage(selectedCharacterImage, imageLeftPosition - 10, verticalStartingPosition + (charSheetHeight + margin) * number - 10);	
 			}
 		});
 	}
 	
-	drawMenu();
-	
-	requestAnimationFrame(() => {
-		context.clearRect(0, 0, canvas.width, canvas.height);
+	function prepareMenu(){
 		drawMenu();
-	});
 
-	document.onmousemove = e => {
-		if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-			e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + (charSheetHeight + margin) * (characters.length - 1) + charSheetHeight){
-				
-				const newSelected = Math.floor((e.y - verticalStartingPosition) / (charSheetHeight + margin));
-				if(newSelected != selectedCharacter){
-					requestAnimationFrame(() => {
-						context.clearRect(0, 0, canvas.width, canvas.height);
-						drawMenu();
-					});		
-				}
-
-				selectedCharacter = newSelected;
-		}
-		// if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-		// 	e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){	
+		document.onmousemove = e => {
+			if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+				e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + (charSheetHeight + margin) * (characterNames.length - 1) + charSheetHeight){
 					
-		// 		selectedCharacter = 0; //context.drawImage(selectedCharacterImage, canvas.width / 2 - selectedCharacterImage.width / 2, 100);
-		// }
-		// else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-		// 		e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
-		// 		requestAnimationFrame(() => {
-		// 			context.clearRect(0, 0, canvas.width, canvas.height);
-		// 			drawMenu();
-		// 		});
-		// 		selectedCharacter = 1; //context.drawImage(selectedCharacterImage, canvas.width/2 - selectedCharacterImage.width / 2, 100 + markImage.height + 10);
-		// }
-		// else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-		// 	e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
-		// 		requestAnimationFrame(() => {
-		// 			context.clearRect(0, 0, canvas.width, canvas.height);
-		// 			drawMenu();
-		// 		});
-		// 		selectedCharacter = 2; //context.drawImage(selectedCharacterImage, canvas.width/2 - selectedCharacterImage.width / 2, 100 + markImage.height + amandaImage.height + 20);
-		// }
-	};
-
-	canvas.onclick = (e) => {
-		if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-			e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){		
-			document.onmousemove = '';		
-			startGame(characters[0]);
-		}
-		else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-			e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
-			document.onmousemove = '';
-			startGame(characters[1]);
-		}
-		else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-			e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
-			document.onmousemove = '';
-			startGame(characters[2]);
-		}
-	};
+					const newSelected = Math.floor((e.y - verticalStartingPosition) / (charSheetHeight + margin));
+					if(newSelected != selectedCharacter){
+						requestAnimationFrame(() => {
+							context.clearRect(0, 0, canvas.width, canvas.height);
+							drawMenu();
+						});		
+					}
 	
+					selectedCharacter = newSelected;
+			}
+	
+		};
+	
+		// Переделать: а если всего 2 на выбор или 1 или 4
+		canvas.onclick = (e) => {
+			if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+				e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){		
+				document.onmousemove = '';		
+				startGame(characterNames[0]);
+			}
+			else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+				e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
+				document.onmousemove = '';
+				startGame(characterNames[1]);
+			}
+			else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+				e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
+				document.onmousemove = '';
+				startGame(characterNames[2]);
+			}
+		};
+	}
+		
 }
 
 
