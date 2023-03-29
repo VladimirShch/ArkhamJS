@@ -72,7 +72,7 @@ class Character
 		this.previousDirection = direction;
 	}
 	
-	SetAnimation()
+	setAnimation()
 	{
 		if(this.x == this.lastX && this.y == this.lastY)
 		{
@@ -174,7 +174,7 @@ function update(city, character, mist)
 		canvas.height
 	);
 	
-	character.SetAnimation();
+	character.setAnimation();
 	//context.save();
 	//context.translate(canvas.width/2, canvas.height/2);
 	//context.translate(character.x, character.y);
@@ -201,7 +201,7 @@ function update(city, character, mist)
 function moveMapIfNeeded(city, character){
 	// Всё костыли - переделать!!! получается, что шагаем, координаты прибавляем мы на событие нажатия клавиши, а перерисовываем и двигаем карту - по таймеру
 	if(character.x !== character.lastX || character.y !== character.lastY){
-		// Идем вправо
+		// Идем вправо, персонаж ушел на 2/3 экрана или больше
 		if(character.previousDirection === "r" && character.x >= canvas.width / 3 * 2 && city.x + canvas.width <= city.image.width){
 			const dif = character.x - character.lastX;
 			character.x -= dif;
@@ -244,35 +244,98 @@ function moveMapIfNeeded(city, character){
 	}
 	
 }
-function characterSelection(){
-	const selectTextImage = new Image();
-	selectTextImage.src = "Select_character.png";
-	selectTextImage.onload = () => context.drawImage(selectTextImage, canvas.width / 2 - selectTextImage.width / 2, 0);
 
-	const markImage = new Image();
-	markImage.src = "Mark/mark_charlist.png";
-	markImage.onload = () => context.drawImage(markImage, canvas.width / 2 - markImage.width / 2, 100);
+// Переделать по-нормальному
+function characterSelection(){
+	const titleWidth = 500,
+		  titleHeight = 100;
 	
-	const amandaImage = new Image();
-	amandaImage.src = "Amanda/amanda_charlist.png";
-	amandaImage.onload = () => context.drawImage(amandaImage, canvas.width/2 - amandaImage.width / 2, 100 + markImage.height + 10);
+	const charSheetWidth = 348,
+		  charSheetHeight = 206,
+		  verticalStartingPosition = titleHeight + 10,
+		  imageLeftPosition = canvas.width / 2 - charSheetWidth / 2,
+		  margin = 10;
 	
-	const michaelImage = new Image();
-	michaelImage.src = "Michael/michael_charlist.png";
-	michaelImage.onload = () => context.drawImage(michaelImage, canvas.width/2 - michaelImage.width / 2, 100 + markImage.height + amandaImage.height + 20);
+	const characters = ["Mark", "Amanda", "Michael"];
+	let selectedCharacter = 0;
+
+	function drawMenu(){
+		const selectTextImage = new Image();
+		selectTextImage.src = "Select_character.png";
+		selectTextImage.onload = () => context.drawImage(selectTextImage, canvas.width / 2 - titleWidth / 2, 0);
+
+		characters.forEach((charName, number) => {
+			const image = new Image();
+			image.src = `${charName}/charsheet.png`;
+			image.onload = () => context.drawImage(image, imageLeftPosition, verticalStartingPosition + (charSheetHeight + margin) * number);
+			
+			if(selectedCharacter === number){
+				const selectedCharacterImage = new Image();
+				selectedCharacterImage.src = "selection_mark.png";
+				selectedCharacterImage.onload = () => context.drawImage(selectedCharacterImage, imageLeftPosition - 10, verticalStartingPosition + (charSheetHeight + margin) * number - 10);
+			}
+		});
+	}
+	
+	drawMenu();
+	
+	requestAnimationFrame(() => {
+		context.clearRect(0, 0, canvas.width, canvas.height);
+		drawMenu();
+	});
+
+	document.onmousemove = e => {
+		if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+			e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + (charSheetHeight + margin) * (characters.length - 1) + charSheetHeight){
+				
+				const newSelected = Math.floor((e.y - verticalStartingPosition) / (charSheetHeight + margin));
+				if(newSelected != selectedCharacter){
+					requestAnimationFrame(() => {
+						context.clearRect(0, 0, canvas.width, canvas.height);
+						drawMenu();
+					});		
+				}
+
+				selectedCharacter = newSelected;
+		}
+		// if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+		// 	e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){	
+					
+		// 		selectedCharacter = 0; //context.drawImage(selectedCharacterImage, canvas.width / 2 - selectedCharacterImage.width / 2, 100);
+		// }
+		// else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+		// 		e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
+		// 		requestAnimationFrame(() => {
+		// 			context.clearRect(0, 0, canvas.width, canvas.height);
+		// 			drawMenu();
+		// 		});
+		// 		selectedCharacter = 1; //context.drawImage(selectedCharacterImage, canvas.width/2 - selectedCharacterImage.width / 2, 100 + markImage.height + 10);
+		// }
+		// else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+		// 	e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
+		// 		requestAnimationFrame(() => {
+		// 			context.clearRect(0, 0, canvas.width, canvas.height);
+		// 			drawMenu();
+		// 		});
+		// 		selectedCharacter = 2; //context.drawImage(selectedCharacterImage, canvas.width/2 - selectedCharacterImage.width / 2, 100 + markImage.height + amandaImage.height + 20);
+		// }
+	};
 
 	canvas.onclick = (e) => {
-		if(e.x >=  canvas.width / 2 - markImage.width / 2 && e.x <=  canvas.width / 2 + markImage.width / 2 && 
-			e.y >= 50 && e.y <= 50 + markImage.height){				
-			startGame("Mark");
+		if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+			e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){		
+			document.onmousemove = '';		
+			startGame(characters[0]);
 		}
-		else if(e.x >=  canvas.width/2 - amandaImage.width / 2 && e.x <=  canvas.width/2 + amandaImage.width / 2 && 
-			e.y >= 50 + markImage.height + 10 && e.y <= 50 + markImage.height + 10 + amandaImage.height){
-			startGame("Amanda");
+		else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+			e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
+			document.onmousemove = '';
+			startGame(characters[1]);
 		}
-		else if(e.x >= michaelImage, canvas.width/2 - michaelImage.width / 2 && michaelImage, canvas.width/2 + michaelImage.width / 2 && 
-			e.y >=50 + markImage.height + amandaImage.height + 20 && e.y <= 50 + markImage.height + amandaImage.height + 20 + michaelImage.height){
-			startGame("Michael");
+		else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
+			e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
+			document.onmousemove = '';
+			startGame(characters[2]);
 		}
 	};
 	
