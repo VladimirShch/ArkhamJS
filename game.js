@@ -245,7 +245,7 @@ function moveMapIfNeeded(city, character){
 	
 }
 
-// Переделать по-нормальному
+// -----------------Character selection menu-------------------------
 function characterSelection(){
 	const titleWidth = 500,
 		  titleHeight = 100;
@@ -321,22 +321,15 @@ function characterSelection(){
 	
 		};
 	
-		// Переделать: а если всего 2 на выбор или 1 или 4
+		// Fix case if clicked on margin
 		canvas.onclick = (e) => {
+
 			if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-				e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + charSheetHeight){		
-				document.onmousemove = '';		
-				startGame(characterNames[0]);
-			}
-			else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-				e.y >= verticalStartingPosition + (charSheetHeight + margin) && e.y <= verticalStartingPosition + (charSheetHeight + margin) + charSheetHeight){
-				document.onmousemove = '';
-				startGame(characterNames[1]);
-			}
-			else if(e.x >=  imageLeftPosition && e.x <=  imageLeftPosition + charSheetWidth && 
-				e.y >= verticalStartingPosition + (charSheetHeight + margin) * 2 && e.y <= verticalStartingPosition + (charSheetHeight + margin) * 2 + charSheetHeight){
-				document.onmousemove = '';
-				startGame(characterNames[2]);
+				e.y >= verticalStartingPosition && e.y <= verticalStartingPosition + (charSheetHeight + margin) * (characterNames.length - 1) + charSheetHeight){
+					
+					const selectedCharacter = Math.floor((e.y - verticalStartingPosition) / (charSheetHeight + margin));
+					document.onmousemove = '';		
+				    startGame(characterNames[selectedCharacter]);
 			}
 		};
 	}
