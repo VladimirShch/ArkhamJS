@@ -27,40 +27,28 @@ class Character
 		this.image = new Image();
 		this.image.src = `${this.characterName}/Move/down.png`;
 		this.previousDirection = "d";
-		//this.animationNum = 0;
-		//this.angle = "90";
-		//this.image.onload = () => this.image.style.transform = `rotate(${this.angle}deg)`;
-		//this.rotation = 0; // радианы
+		this.lastAnimationTime = Date.now();
 	}
 	
 	Move(direction)
 	{
 		if(direction == "r")
 		{ 
-			//this.image.style.transform = "rotate(0deg)";
-			//this.rotation = 0;
 			this.image.src = `${this.characterName}/Move/right.png`;
 			this.x++;
 		}
 		else if(direction == "l")
 		{
-			//this.angle = '180';
-			//this.image.style.transform = "rotate(180deg)";
-			//this.rotation = 3,14159;
 			this.image.src = `${this.characterName}/Move/left.png`;
 			this.x--;
 		}
 		else if(direction == "d")
 		{
-			//this.image.style.transform = "rotate(270deg)";
-			//this.rotation = -1,5708;
 			this.image.src = `${this.characterName}/Move/down.png`;
 			this.y++;
 		}
 		else if(direction == "u")
 		{
-			//this.image.style.transform = "rotate(90deg)";
-			//this.rotation = 1,5708;
 			this.image.src = `${this.characterName}/Move/up.png`;
 			this.y--;
 		}
@@ -74,13 +62,18 @@ class Character
 	
 	setAnimation()
 	{
+		//!! Переделать
+		const currentTime = Date.now();
+		if(currentTime - this.lastAnimationTime < 1000/5){
+			return;
+		}
+		this.lastAnimationTime = currentTime;
 		if(this.x == this.lastX && this.y == this.lastY)
 		{
 			this.frame  = 0;
 		}
 		else
 		{
-			//this.image.src  = `${this.characterName}/Move/${(this.frame/this.framesPerImage + 1)}.png`;
 			if(this.frame == this.endingFrame - 1)
 			{
 				this.frame = this.startingFrame;				
@@ -109,7 +102,7 @@ class Mist{
 			this.startingPoint = 0
 		}
 		else{
-			this.startingPoint += 2;
+			this.startingPoint += 1;
 		}
 		context.drawImage(this.image, this.startingPoint, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
 	}
@@ -125,7 +118,20 @@ characterSelection();
 
 function start(city, character, mist)
 {
-	const timer = setInterval(() => update(city, character, mist), 1000/5);
+	//const timer = setInterval(() => update(city, character, mist), 1000/5);
+	let previousTime  = Date.now();
+	function animate(){
+		requestAnimationFrame(() => {
+			requestAnimationFrame(animate);
+			const currentTime = Date.now();
+			if(currentTime - previousTime >= 1000/30){
+				previousTime = currentTime;
+				update(city, character, mist);
+			}			
+		});
+	}
+
+	animate();
 }
 
 function resize()
@@ -175,10 +181,7 @@ function update(city, character, mist)
 	);
 	
 	character.setAnimation();
-	//context.save();
-	//context.translate(canvas.width/2, canvas.height/2);
-	//context.translate(character.x, character.y);
-	//context.rotate(character.rotation);
+
 	context.drawImage
 	(
 		character.image,
@@ -191,9 +194,6 @@ function update(city, character, mist)
 		character.image.width / 4,
 		character.image.height
 	);
-	//context.rotate(-character.rotation);
-	//context.translate(-character.x, -character.y);
-	//context.restore();
 
 	mist.draw(context);
 }
