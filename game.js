@@ -17,8 +17,8 @@ class City
 			this.image,
 			this.screen.x,
 			this.screen.y,
-			1000,
-			800,
+			canvas.width,
+			canvas.height,
 			0,
 			0,
 			canvas.width,
@@ -192,7 +192,6 @@ class Mist{
 
 let canvas = document.querySelector("#canvas");
 let context = canvas.getContext("2d");
-
 resize();
 
 characterSelection();
