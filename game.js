@@ -2,28 +2,54 @@
 
 class City
 {
-	constructor(imageSource, x, y)
+	constructor(imageSource, x, y, screen)
 	{
 		this.x = x;
 		this.y = y;
+		this.screen = screen;
 		this.image = new Image();
 		this.image.src = imageSource;
+	}
+
+	draw(context){
+		context.drawImage
+		(
+			this.image,
+			this.screen.x,
+			this.screen.y,
+			1000,
+			800,
+			0,
+			0,
+			canvas.width,
+			canvas.height
+		);
+	}
+}
+
+class GameScreen{
+	constructor(canv, distanceToMove){
+		this.x = 0;
+		this.y = 0;
+		this.canvas = canv;
+		this.distanceToMove = distanceToMove;
 	}
 }
 
 class Character
 {	
-	constructor(characterName, x, y)
+	constructor(characterName, x, y, screen, mapWidth, mapHeight)
 	{
 		this.characterName = characterName;
 		this.x = x;
 		this.y = y;
-		this.lastX = x;
-		this.lastY = y;
-		this.startingFrame = 0;
-		this.framesPerImage = 1;
-		this.endingFrame = 4 * this.framesPerImage; // Потому что 4 изображения всего на анимацию
-		this.frame = this.startingFrame;
+		this.screen = screen;
+		this.mapWidth = mapWidth;
+		this.mapHeight = mapHeight;
+		this.lastAnimationX = x;
+		this.lastAnimationY = y;
+		this.framesInAnimation = 4; // Потому что 4 изображения всего на анимацию
+		this.frame = 0;
 		this.image = new Image();
 		this.image.src = `${this.characterName}/Move/down.png`;
 		this.previousDirection = "d";
@@ -32,27 +58,65 @@ class Character
 	
 	Move(direction)
 	{
+		if (this.previousDirection != direction){
+			switch (direction) {
+				case "r":
+					this.image.src = `${this.characterName}/Move/right.png`;
+					break;
+				case "l":
+					this.image.src = `${this.characterName}/Move/left.png`;
+					break;
+				case "d":
+					this.image.src = `${this.characterName}/Move/down.png`;
+					break;
+				case "u":
+					this.image.src = `${this.characterName}/Move/up.png`;
+					break;
+			}
+		}
 		if(direction == "r")
 		{ 
-			this.image.src = `${this.characterName}/Move/right.png`;
-			this.x++;
+			if(this.x < this.mapWidth){
+				this.x++;
+			}
+			
+			if((this.x - this.screen.x)/this.screen.canvas.width >= this.screen.distanceToMove 
+				&& this.screen.x + this.screen.canvas.width < this.mapWidth){
+				this.screen.x++
+			}
 		}
 		else if(direction == "l")
-		{
-			this.image.src = `${this.characterName}/Move/left.png`;
-			this.x--;
+		{	
+			if(this.x > 0){
+				this.x--;
+			}		
+			
+			if((this.x - this.screen.x)/this.screen.canvas.width <= (1 - this.screen.distanceToMove) && this.screen.x > 0){
+				this.screen.x--;
+			}
 		}
 		else if(direction == "d")
-		{
-			this.image.src = `${this.characterName}/Move/down.png`;
-			this.y++;
+		{	
+			if(this.y < this.mapHeight){
+				this.y++;
+			}		
+						
+			if((this.y - this.screen.y)/this.screen.canvas.height >= this.screen.distanceToMove && this.screen.y + this.screen.canvas.height < this.mapHeight){
+				this.screen.y++;
+			}
 		}
 		else if(direction == "u")
-		{
-			this.image.src = `${this.characterName}/Move/up.png`;
-			this.y--;
+		{		
+			if(this.y > 0){
+				this.y--;
+			}	
+			
+			if((this.y - this.screen.y)/this.screen.canvas.height <= 1 - this.screen.distanceToMove && this.screen.y > 0){
+				this.screen.y--;
+			}
 		}
-		
+
+		// Немного не отсюда
 		if(direction !== this.previousDirection){
 			this.frame = 0;
 		}
@@ -64,33 +128,51 @@ class Character
 	{
 		//!! Переделать
 		const currentTime = Date.now();
-		if(currentTime - this.lastAnimationTime < 1000/5){
+		if(currentTime - this.lastAnimationTime < 1000/4){
 			return;
 		}
 		this.lastAnimationTime = currentTime;
-		if(this.x == this.lastX && this.y == this.lastY)
+		if(this.x == this.lastAnimationX && this.y == this.lastAnimationY)
 		{
 			this.frame  = 0;
 		}
 		else
 		{
-			if(this.frame == this.endingFrame - 1)
+			if(this.frame == this.framesInAnimation - 1)
 			{
-				this.frame = this.startingFrame;				
+				this.frame = 0;				
 			}
 			else
 			{
 				this.frame++;				
-			}
-			
-			this.lastX = this.x;
-			this.lastY = this.y;
+			}	
 		}
+		this.lastAnimationX = this.x;
+		this.lastAnimationY = this.y;
 	}	
+
+	draw(context){
+
+		this.setAnimation();
+
+		context.drawImage
+		(
+			this.image,
+			this.frame * this.image.width / 4,
+			0,
+			this.image.width / 4,
+			this.image.height,
+			this.x - this.screen.x,
+			this.y - this.screen.y,
+			this.image.width / 4,
+			this.image.height
+		);
+	}
 }
 
 class Mist{
-	constructor(){
+	constructor(screen){
+		this.screen = screen;
 		this.image = new Image();
 		this.image.src = "Mist_large.png";
 		this.startingPoint = 0;
@@ -104,7 +186,7 @@ class Mist{
 		else{
 			this.startingPoint += 1;
 		}
-		context.drawImage(this.image, this.startingPoint, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
+		context.drawImage(this.image, this.startingPoint + this.screen.x, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
 	}
 }
 
@@ -166,84 +248,59 @@ function keyDown(e, character)
 function update(city, character, mist)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
-	moveMapIfNeeded(city, character);
-	context.drawImage
-	(
-		city.image,
-		city.x,
-		city.y,
-		1000,
-		800,
-		0,
-		0,
-		canvas.width,
-		canvas.height
-	);
+	//moveMapIfNeeded(city, character);
 	
-	character.setAnimation();
-
-	context.drawImage
-	(
-		character.image,
-		Math.floor(character.frame/character.framesPerImage) * (character.image.width / 4),
-		0,
-		character.image.width / 4,
-		character.image.height,
-		character.x,
-		character.y,
-		character.image.width / 4,
-		character.image.height
-	);
-
+	city.draw(context);
+	character.draw(context);
 	mist.draw(context);
 }
 
-function moveMapIfNeeded(city, character){
-	// Всё костыли - переделать!!! получается, что шагаем, координаты прибавляем мы на событие нажатия клавиши, а перерисовываем и двигаем карту - по таймеру
-	if(character.x !== character.lastX || character.y !== character.lastY){
-		// Идем вправо, персонаж ушел на 2/3 экрана или больше
-		if(character.previousDirection === "r" && character.x >= canvas.width / 3 * 2 && city.x + canvas.width <= city.image.width){
-			const dif = character.x - character.lastX;
-			character.x -= dif;
-			character.lastX -= dif;
-			city.x += dif;
-			if(city.x + canvas.width > city.image.width){
-				city.x = city.image.width - canvas.width;
-			}
-		}
-		// Идем влево
-		if(character.previousDirection === "l" && character.x <= canvas.width / 3 && city.x > 0){
-			const dif = character.lastX - character.x;
-			character.x += dif;
-			character.lastX += dif;
-			city.x -= dif;
-			if(city.x < 0){
-				city.x = 0;
-			}
-		}
-		// Идем вниз
-		if(character.previousDirection === "d" && character.y >= canvas.height / 3 * 2 && city.y + canvas.height <= city.image.height){
-			const dif = character.y - character.lastY;
-			character.y -= dif;
-			character.lastY -= dif;
-			city.y += dif;
-			if(city.y + canvas.height > city.image.height){
-				city.y = city.image.height - canvas.height;
-			}
-		}
-		// Идем вверх
-		if(character.previousDirection === "u" && character.y <= canvas.height / 3 && city.y > 0){
-			const dif = character.lastY - character.y;
-			character.y += dif;
-			character.lastY += dif;
-			city.y -= dif;
-			if(city.y < 0){
-				city.y = 0;
-			}
-		}
-	}
+// function moveMapIfNeeded(city, character){
+// 	// Всё костыли - переделать!!! получается, что шагаем, координаты прибавляем мы на событие нажатия клавиши, а перерисовываем и двигаем карту - по таймеру
+// 	if(character.x !== character.lastX || character.y !== character.lastY){
+// 		// Идем вправо, персонаж ушел на 2/3 экрана или больше
+// 		if(character.previousDirection === "r" && character.x >= canvas.width / 3 * 2 && city.x + canvas.width <= city.image.width){
+// 			const dif = character.x - character.lastAnimationX;
+// 			character.x -= dif;
+// 			character.lastAnimationX -= dif;
+// 			city.x += dif;
+// 			if(city.x + canvas.width > city.image.width){
+// 				city.x = city.image.width - canvas.width;
+// 			}
+// 		}
+// 		// Идем влево
+// 		if(character.previousDirection === "l" && character.x <= canvas.width / 3 && city.x > 0){
+// 			const dif = character.lastAnimationX - character.x;
+// 			character.x += dif;
+// 			character.lastAnimationX += dif;
+// 			city.x -= dif;
+// 			if(city.x < 0){
+// 				city.x = 0;
+// 			}
+// 		}
+// 		// Идем вниз
+// 		if(character.previousDirection === "d" && character.y >= canvas.height / 3 * 2 && city.y + canvas.height <= city.image.height){
+// 			const dif = character.y - character.lastAnimationY;
+// 			character.y -= dif;
+// 			character.lastAnimationY -= dif;
+// 			city.y += dif;
+// 			if(city.y + canvas.height > city.image.height){
+// 				city.y = city.image.height - canvas.height;
+// 			}
+// 		}
+// 		// Идем вверх
+// 		if(character.previousDirection === "u" && character.y <= canvas.height / 3 && city.y > 0){
+// 			const dif = character.lastAnimationY - character.y;
+// 			character.y += dif;
+// 			character.lastAnimationY += dif;
+// 			city.y -= dif;
+// 			if(city.y < 0){
+// 				city.y = 0;
+// 			}
+// 		}
+// 	}
 	
-}
+// }
 
 // -----------------Character selection menu-------------------------
 function characterSelection(){
@@ -340,9 +397,10 @@ function characterSelection(){
 function startGame(characterName){		
 	canvas.onclick = null;
 
-	let city = new City("Map_3.png", 0, 0);
-	let character = new Character(characterName, 500, 300);
-	const mist = new Mist();
+	const screen = new GameScreen(canvas, 2/3);
+	const city = new City("Map_3.png", 0, 0, screen);
+	const character = new Character(characterName, 500, 300, screen, 4000, 5000);
+	const mist = new Mist(screen);
 
 	window.addEventListener("resize", resize);
 	window.addEventListener("keydown", (e) => keyDown(e, character));
