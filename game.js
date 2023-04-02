@@ -79,12 +79,12 @@ class Character
 		if(direction == "r")
 		{ 
 			if(this.x < this.mapWidth){
-				this.x = Math.min(this.x + this.velocity, this.mapWidth);
+				this.x = Math.min(this.x + this.velocity, this.mapWidth - this.image.width/this.framesInAnimation);
 			}
 			
 			if((this.x - this.screen.x)/this.screen.canvas.width >= this.screen.distanceWhenMove 
 				&& this.screen.x + this.screen.canvas.width < this.mapWidth){
-					this.screen.x = Math.min(this.screen.x + this.velocity, this.mapWidth - this.screen.canvqas.width);
+					this.screen.x = Math.min(this.screen.x + this.velocity, this.mapWidth - this.screen.canvas.width);
 			}
 		}
 		else if(direction == "l")
@@ -100,7 +100,7 @@ class Character
 		else if(direction == "d")
 		{	
 			if(this.y < this.mapHeight){
-				this.y = Math.min(this.y + this.velocity, this.mapHeight);
+				this.y = Math.min(this.y + this.velocity, this.mapHeight - this.image.height);
 			}		
 						
 			if((this.y - this.screen.y)/this.screen.canvas.height >= this.screen.distanceWhenMove && this.screen.y + this.screen.canvas.height < this.mapHeight){
