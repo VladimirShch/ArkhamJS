@@ -84,7 +84,7 @@ class Character
 			
 			if((this.x - this.screen.x)/this.screen.canvas.width >= this.screen.distanceWhenMove 
 				&& this.screen.x + this.screen.canvas.width < this.mapWidth){
-					this.screen.x = Math.min(this.screen.x + this.velocity, this.mapWidth - this.screen.x);
+					this.screen.x = Math.min(this.screen.x + this.velocity, this.mapWidth - this.screen.canvqas.width);
 			}
 		}
 		else if(direction == "l")
@@ -104,7 +104,7 @@ class Character
 			}		
 						
 			if((this.y - this.screen.y)/this.screen.canvas.height >= this.screen.distanceWhenMove && this.screen.y + this.screen.canvas.height < this.mapHeight){
-				this.screen.y = Math.min(this.screen.y + this.velocity, this.mapHeight - this.screen.y);;
+				this.screen.y = Math.min(this.screen.y + this.velocity, this.mapHeight - this.screen.canvas.height);
 			}
 		}
 		else if(direction == "u")
