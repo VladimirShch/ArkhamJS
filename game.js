@@ -2,13 +2,12 @@
 
 class City
 {
-	constructor(imageSource, x, y, screen, scale)
+	constructor(image, x, y, screen, scale)
 	{
 		this.x = x;
 		this.y = y;
 		this.screen = screen;
-		this.image = new Image();
-		this.image.src = imageSource;
+		this.image = image;
 		this.scale = scale;
 	}
 
@@ -16,8 +15,8 @@ class City
 		context.drawImage
 		(
 			this.image,
-			this.screen.x,
-			this.screen.y,
+			this.screen.x/this.scale,
+			this.screen.y/this.scale,
 			canvas.width/this.scale,
 			canvas.height/this.scale,
 			0,
@@ -352,9 +351,17 @@ function startGame(characterName){
 	canvas.onclick = null;
 
 	const screen = new GameScreen(canvas, 2/3);
-	const scale = 1;
-	const city = new City("Map_3.png", 0, 0, screen, scale);
-	const character = new Character(characterName, 500, 300, 5, screen, 4000*scale, 5000*scale);
+	const scale = 1.5;
+	const cityImage = new Image();
+	cityImage.onload = (e) => OnCityImageLoaded(e.target, screen, scale, characterName);
+	cityImage.src = "Map_3.png";
+	
+}
+
+// Переделать - вынесено в эту функцию из-за того, что видимо до создания персонажа не успевает карта города загрузиться и размеры 0 получаются
+function OnCityImageLoaded(cityImage, screen, scale, characterName){
+	const city = new City(cityImage, 0, 0, screen, scale);
+	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
 
 	window.addEventListener("resize", resize);
