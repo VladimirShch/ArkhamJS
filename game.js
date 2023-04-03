@@ -178,17 +178,24 @@ class Mist{
 		this.image = new Image();
 		this.image.src = "Mist_large.png";
 		this.startingPoint = 0;
+		this.lastScreenX = 0;
 	}
 
 	draw(context){
-		if(this.startingPoint >= 3000) // размер изображения - 4000, размер экрана - 1000. Итого когда будет последний помещающийся на экран кусок - отмотать
+		this.startingPoint += 1 + this.screen.x - this.lastScreenX;
+		this.lastScreenX = this.screen.x;
+		if(this.startingPoint >= 4000) // размер изображения - 4000, размер экрана - 1000. Итого когда будет последний помещающийся на экран кусок - отмотать
 		{
-			this.startingPoint = 0
+			this.startingPoint = 0;
 		}
-		else{
-			this.startingPoint += 1;
+		if(this.startingPoint < 0){
+			this.startingPoint = 4000;
 		}
-		context.drawImage(this.image, this.startingPoint + this.screen.x, 0, 1000, 800, 0, 0, canvas.width, canvas.height); // Тут всё неправильно
+
+		context.drawImage(this.image, this.startingPoint, 0, this.screen.canvas.width, this.screen.canvas.height, 0, 0, this.screen.canvas.width, this.screen.canvas.height); // Тут всё неправильно
+		if(this.startingPoint + this.screen.canvas.width > 4000){
+			context.drawImage(this.image, this.startingPoint - 4000, 0,  this.screen.canvas.width, this.screen.canvas.height, 0, 0, this.screen.canvas.width, this.screen.canvas.height);
+		}
 	}
 }
 
