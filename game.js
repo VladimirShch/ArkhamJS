@@ -38,7 +38,7 @@ class GameScreen{
 
 class Character
 {	
-	constructor(characterName, x, y, velocity, screen, mapWidth, mapHeight)
+	constructor(characterName, x, y, velocity, screen, mapWidth, mapHeight, collisionManager)
 	{
 		this.characterName = characterName;
 		this.x = x;
@@ -47,6 +47,7 @@ class Character
 		this.screen = screen;
 		this.mapWidth = mapWidth;
 		this.mapHeight = mapHeight;
+		this.collisionManager = collisionManager;
 		this.lastAnimationX = x;
 		this.lastAnimationY = y;
 		this.framesInAnimation = 4; // Потому что 4 изображения всего на анимацию
@@ -78,7 +79,10 @@ class Character
 		if(direction == "r")
 		{ 
 			if(this.x < this.mapWidth){
-				this.x = Math.min(this.x + this.velocity, this.mapWidth - this.image.width/this.framesInAnimation);
+				if(this.collisionManager.getPossibleDistance(this.x + this.image.width/this.framesInAnimation, this.x + this.image.width/this.framesInAnimation + this.velocity, this.y, this.y + this.image.height, direction)){
+					this.x += this.velocity;
+				}
+				//this.x = Math.min(this.x + this.velocity, this.mapWidth - this.image.width/this.framesInAnimation);
 			}
 			
 			if((this.x - this.screen.x)/this.screen.canvas.width >= this.screen.distanceWhenMove 
@@ -89,7 +93,10 @@ class Character
 		else if(direction == "l")
 		{	
 			if(this.x > 0){
-				this.x = Math.max(this.x - this.velocity, 0);
+				if(this.collisionManager.getPossibleDistance(this.x, this.x - this.velocity, this.y, this.y + this.image.height, direction)){
+					this.x -= this.velocity;
+				}
+				//this.x = Math.max(this.x - this.velocity, 0);
 			}		
 			
 			if((this.x - this.screen.x)/this.screen.canvas.width <= (1 - this.screen.distanceWhenMove) && this.screen.x > 0){
@@ -99,7 +106,10 @@ class Character
 		else if(direction == "d")
 		{	
 			if(this.y < this.mapHeight){
-				this.y = Math.min(this.y + this.velocity, this.mapHeight - this.image.height);
+				if(this.collisionManager.getPossibleDistance(this.x, this.x + this.image.width/this.framesInAnimation, this.y + this.image.height, this.y + this.image.height + this.velocity, direction)){
+					this.y += this.velocity;
+				}
+				//this.y = Math.min(this.y + this.velocity, this.mapHeight - this.image.height);
 			}		
 						
 			if((this.y - this.screen.y)/this.screen.canvas.height >= this.screen.distanceWhenMove && this.screen.y + this.screen.canvas.height < this.mapHeight){
@@ -109,7 +119,10 @@ class Character
 		else if(direction == "u")
 		{		
 			if(this.y > 0){
-				this.y = Math.max(this.y - this.velocity, 0);;
+				if(this.collisionManager.getPossibleDistance(this.x, this.x + this.image.width/this.framesInAnimation, this.y, this.y - this.velocity, direction)){
+					this.y -= this.velocity;
+				}
+				//this.y = Math.max(this.y - this.velocity, 0);;
 			}	
 			
 			if((this.y - this.screen.y)/this.screen.canvas.height <= 1 - this.screen.distanceWhenMove && this.screen.y > 0){
@@ -199,8 +212,60 @@ class Mist{
 	}
 }
 
+class CollisionManager{
+	constructor(pixelsPerTile){
+		this.pixelsPerTile = pixelsPerTile;
+	}
+	getPossibleDistance(xStart, xEnd, yStart, yEnd, direction){
+		const xStartTile = Math.floor(xStart / this.pixelsPerTile) - 1;
+		const xEndTile = Math.floor(xEnd / this.pixelsPerTile) - 1;
+		const yStartTile = Math.floor(yStart / this.pixelsPerTile);
+		const yEndTile = Math.floor(yEnd / this.pixelsPerTile);
+
+		switch (direction){
+			case "r":	
+				for(let j = xStartTile; j <= xEndTile; j++){
+					for(let i = yStartTile; i <= yEndTile; i++){
+						if(collisions[i][j] != 0){
+							return false;
+						}
+					}
+				}
+				return true;
+			case "l":
+				for(let j = xStartTile; j >= xEndTile; j--){
+					for(let i = yStartTile; i <= yEndTile; i++){
+						if(collisions[i][j] != 0){
+							return false;
+						}
+					}
+				}
+				return true;
+			case "d":
+				for(let j = yStartTile; j <= yEndTile; j++){
+					for(let i = xStartTile; i <= xEndTile; i++){
+						if(collisions[j][i] != 0){
+							return false;
+						}
+					}
+				}
+				return true;
+			case "u":
+				for(let j = yStartTile; j >= yEndTile; j--){
+					for(let i = xStartTile; i <= xEndTile; i++){
+						if(collisions[j][i] != 0){
+							return false;
+						}
+					}
+				}
+				return true;
+		}
+	}
+}
+
 let canvas = document.querySelector("#canvas");
 let context = canvas.getContext("2d");
+
 resize();
 
 characterSelection();
@@ -368,7 +433,8 @@ function startGame(characterName){
 // Переделать - вынесено в эту функцию из-за того, что видимо до создания персонажа не успевает карта города загрузиться и размеры 0 получаются
 function OnCityImageLoaded(cityImage, screen, scale, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
-	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale); // 4000 5000 было image.widt image.height
+	let  collisionManager = new CollisionManager(24*scale);
+	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
 
 	window.addEventListener("resize", resize);
