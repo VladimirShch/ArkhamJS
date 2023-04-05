@@ -67,6 +67,7 @@ class Character
 		if(this.activeWeapon.isHitting()){
 			return;
 		}
+		
 		if (this.previousDirection != direction){
 			switch (direction) {
 				case "r":
@@ -144,6 +145,9 @@ class Character
 		}
 
 		this.previousDirection = direction;
+
+		// ----------!!! Глобалка !!!-------------
+		gameDirector.heatMap.build(this.x, this.y);
 	}
 	
 	setAnimation()
@@ -261,7 +265,7 @@ class Weapon{
 
 		context.drawImage(this.activeImage, (this.currentFrame-1) * this.activeImage.width / this.frames, 0, this.activeImage.width / this.frames, this.activeImage.height, this.x, this.y, this.activeImage.width / this.frames, this.activeImage.height);
 	}
-	isHitting() { return this.currentFrame >= 0;}
+	isHitting() { return this.currentFrame >= 0; }
 }
 
 class Mist{
@@ -295,6 +299,26 @@ class CollisionManager{
 	constructor(pixelsPerTile){
 		this.pixelsPerTile = pixelsPerTile;
 	}
+	
+	isObstacle(xTileNumber, yTileNumber){
+		if (yTileNumber > collisions.length || xTileNumber > collisions[yTileNumber].length){
+			return true;
+		}
+
+		return collisions[yTileNumber][xTileNumber] != 0;
+	}
+
+	isCollision(x, y){
+		const xTileNumber = Math.floor(x / this.pixelsPerTile) - 1;
+		const yTileNumber = Math.floor(y / this.pixelsPerTile);
+
+		if (yTileNumber > collisions.length || xTileNumber > collisions[yTileNumber].length){
+			return true;
+		}
+
+		return collisions[yTileNumber][xTileNumber] != 0;
+	}
+
 	getPossibleDistance(xStart, xEnd, yStart, yEnd, direction){
 		const xStartTile = Math.floor(xStart / this.pixelsPerTile) - 1;
 		const xEndTile = Math.floor(xEnd / this.pixelsPerTile) - 1;
@@ -342,8 +366,88 @@ class CollisionManager{
 	}
 }
 
-let canvas = document.querySelector("#canvas");
-let context = canvas.getContext("2d");
+class HeatMap{
+	constructor(width, height, collisionManager){
+		this.width = width;
+		this.height = height;
+		this.collisionManager = collisionManager;
+		this.map = [];
+		for(let i = 0; i < height; i++){
+			this.map[i] = [];
+		}
+		this.maxValue = Math.max(width, height) + 1;
+		this.lastX = 0;
+		this.lastY = 0;
+	}
+
+	build(x, y){
+		const xTileNumber = Math.floor(x / 24) - 1;
+		const yTileNumber = Math.floor(y / 24);
+		if(xTileNumber == this.lastX && yTileNumber == this.lastY){
+			return;
+		}
+		this.lastX = xTileNumber;
+		this.lastY = yTileNumber;
+		for(let i = 0; i < this.width; i++){
+			for(let j = 0; j < this.height; j++){
+				this.map[i][j] = this.maxValue;
+			}
+		}
+		let currentMinimals = [];
+		let currentMinimalValue = 0;
+		
+
+		this.map[xTileNumber][yTileNumber] = currentMinimalValue;
+		currentMinimals.push({x: xTileNumber, y: yTileNumber});
+
+		currentMinimalValue++;
+		while (currentMinimals.length > 0){
+			let nextMinimals = [];
+			while(currentMinimals.length > 0){
+				let tile = currentMinimals.pop();
+				this.addIfPossibleAndNeeded(tile.x - 1, tile.y, currentMinimalValue, nextMinimals);
+				this.addIfPossibleAndNeeded(tile.x + 1, tile.y, currentMinimalValue, nextMinimals);
+				this.addIfPossibleAndNeeded(tile.x, tile.y + 1, currentMinimalValue, nextMinimals);
+				this.addIfPossibleAndNeeded(tile.x, tile.y - 1, currentMinimalValue, nextMinimals);
+			}
+			currentMinimals = nextMinimals;
+			currentMinimalValue++;
+		}
+		// TODO: remove
+		console.log(this.map);
+		// for(let i = 0; i < this.height; i++){
+		// 	for(let j = 0; j < this.width; j++){
+		// 		console.log(this.map[i][j]);
+		// 	}
+		// }
+	}
+
+	addIfPossibleAndNeeded(x, y, currentMinimalValue, nextMinimals){
+		if(this.possibleToAdd(x, y) && !this.alreadyAdded(x, y, nextMinimals) 
+		&& !this.collisionManager.isObstacle(x, y) && this.map[x][y] > currentMinimalValue){
+			this.map[x][y] = currentMinimalValue;
+			nextMinimals.push({x:x, y:y});
+		}	
+	}
+
+	possibleToAdd(x, y){
+		if(x < 0 || y < 0 || x >= this.width || y >= this.height){
+			return false;
+		}
+
+		return true;
+	}
+
+	alreadyAdded(x, y, nextMinimal){
+		nextMinimal.forEach(item => {if(item.x == x && item.y == y) return true;});
+
+		return false;
+	}
+}
+
+const canvas = document.querySelector("#canvas");
+const context = canvas.getContext("2d");
+let gameDirector = {};
 
 resize();
 
@@ -529,7 +633,8 @@ function startGame(characterName){
 // Переделать - вынесено в эту функцию из-за того, что видимо до создания персонажа не успевает карта города загрузиться и размеры 0 получаются
 function OnCityImageLoaded(cityImage, screen, scale, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
-	let  collisionManager = new CollisionManager(24*scale);
+	const  collisionManager = new CollisionManager(24*scale);
+	gameDirector.heatMap = new HeatMap(city.image.width/24*scale, city.image.height/24*scale, collisionManager);
 	const weapon = [new Weapon("Knife", 5, 1, 2), new Weapon("Pistol", 5, 2, 1)];
 	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
