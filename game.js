@@ -38,7 +38,7 @@ class GameScreen{
 
 class Character
 {	
-	constructor(characterName, x, y, velocity, screen, mapWidth, mapHeight, collisionManager)
+	constructor(characterName, x, y, velocity, screen, mapWidth, mapHeight, collisionManager, weapon)
 	{
 		this.characterName = characterName;
 		this.x = x;
@@ -48,6 +48,8 @@ class Character
 		this.mapWidth = mapWidth;
 		this.mapHeight = mapHeight;
 		this.collisionManager = collisionManager;
+		this.weapon = weapon;
+		this.activeWeapon = weapon[0];
 		this.lastAnimationX = x;
 		this.lastAnimationY = y;
 		this.framesInAnimation = 4; // Потому что 4 изображения всего на анимацию
@@ -57,9 +59,14 @@ class Character
 		this.previousDirection = "d";
 		this.lastAnimationTime = Date.now();
 	}
-	
-	Move(direction)
+	hit(){
+		this.activeWeapon.hit(this.previousDirection, this.x - this.screen.x, this.y - this.screen.y);
+	}
+	move(direction)
 	{
+		if(this.activeWeapon.isHitting()){
+			return;
+		}
 		if (this.previousDirection != direction){
 			switch (direction) {
 				case "r":
@@ -140,7 +147,7 @@ class Character
 	}
 	
 	setAnimation()
-	{
+	{		
 		//!! Переделать
 		const currentTime = Date.now();
 		if(currentTime - this.lastAnimationTime < 1000/4){
@@ -168,6 +175,10 @@ class Character
 
 	draw(context){
 
+		if(this.activeWeapon.isHitting()){
+			this.activeWeapon.draw(context);
+		}
+
 		this.setAnimation();
 
 		context.drawImage
@@ -183,6 +194,74 @@ class Character
 			this.image.height
 		);
 	}
+}
+
+class Weapon{
+	constructor(name, frames, hitRate, animationVelocity){
+		this.name = name;
+		this.frames = frames;
+		this.hitRate = hitRate;
+		this.animationVelocity = animationVelocity;
+		this.imageRight = new Image();
+		this.imageRight.src = `Weapon/${this.name}/right.png`;
+		this.imageLeft = new Image();
+		this.imageLeft.src = `Weapon/${this.name}/left.png`;
+		this.imageDown = new Image();
+		this.imageDown.src = `Weapon/${this.name}/down.png`;
+		this.imageUp = new Image();
+		this.imageUp.src = `Weapon/${this.name}/up.png`;
+		this.activeImage = null;
+		this.lastAnimationTime = Date.now();
+		this.currentFrame = -1;
+		this.x = 0;
+		this.y = 0;
+	}
+	hit(direction, x, y){
+		switch(direction){
+			case "r":
+				//this.image.src = `Weapon/${this.name}/right.png`;
+				this.activeImage = this.imageRight;
+				break;
+			case "l":
+				//this.image.src = `Weapon/${this.name}/left.png`;
+				this.activeImage = this.imageLeft;
+				break;
+			case "u":
+				//this.image.src = `Weapon/${this.name}/up.png`;
+				this.activeImage = this.imageUp;
+				break;
+			case "d":
+				//this.image.src = `Weapon/${this.name}/down.png`;
+				this.activeImage = this.imageDown;
+				break;
+		}
+		this.lastAnimationTime = Date.now();
+		this.currentFrame = 0;
+		this.x = x;
+		this.y = y;
+	}
+	// Попадания ещё для каждого оружия по-своему рассчитывать надо. Да и урон. И скорость. Возможно, иконка оружия для меню или инвентаря
+	draw(context){
+		if(!this.isHitting()){
+			return;
+		}
+
+		console.log(this.currentFrame);
+		
+		const currentTime = Date.now();
+		if(currentTime - this.lastAnimationTime >= 1000/ this.animationVelocity / this.frames){
+			this.lastAnimationTime = currentTime;
+			this.currentFrame++;
+		}
+
+		if(this.currentFrame > this.frames){
+			this.currentFrame = -1;
+			return;
+		}
+
+		context.drawImage(this.activeImage, (this.currentFrame-1) * this.activeImage.width / this.frames, 0, this.activeImage.width / this.frames, this.activeImage.height, this.x, this.y, this.activeImage.width / this.frames, this.activeImage.height);
+	}
+	isHitting() { return this.currentFrame >= 0;}
 }
 
 class Mist{
@@ -297,23 +376,40 @@ function resize()
 
 function keyDown(e, character)
 {
+	console.log(e.keyCode);
+	
+	if(character.activeWeapon.isHitting()){
+		return;
+	}
+
 	switch(e.keyCode)
 	{
+		case 32:
+			character.hit();
+			break;	
 		// Влево
 		case 37:
-			character.Move("l");
+			character.move("l");
 			break;
 		// Вправо
 		case 39:
-			character.Move("r");
+			character.move("r");
 			break;
 		// Вверх
 		case 38:
-			character.Move("u");
+			character.move("u");
 			break;
 		// Вниз
 		case 40:
-			character.Move("d");
+			character.move("d");
+			break;
+		case 49:
+			character.activeWeapon = character.weapon[0];
+			break;
+		case 50:
+			if(character.weapon.length > 1){
+				character.activeWeapon = character.weapon[1];
+			}
 			break;
 	}
 }
@@ -434,7 +530,8 @@ function startGame(characterName){
 function OnCityImageLoaded(cityImage, screen, scale, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
 	let  collisionManager = new CollisionManager(24*scale);
-	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager); // 4000 5000 было image.widt image.height
+	const weapon = [new Weapon("Knife", 5, 1, 2), new Weapon("Pistol", 5, 2, 1)];
+	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
 
 	window.addEventListener("resize", resize);
