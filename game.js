@@ -249,7 +249,7 @@ class Weapon{
 		if(!this.isHitting()){
 			return;
 		}
-
+		// TODO: remove
 		console.log(this.currentFrame);
 		
 		const currentTime = Date.now();
@@ -375,7 +375,7 @@ class HeatMap{
 		for(let i = 0; i < height; i++){
 			this.map[i] = [];
 		}
-		this.maxValue = Math.max(width, height) + 1;
+		this.maxValue = Math.floor(Math.max(width, height)) + 1;
 		this.lastX = 0;
 		this.lastY = 0;
 	}
@@ -397,7 +397,7 @@ class HeatMap{
 		let currentMinimalValue = 0;
 		
 
-		this.map[xTileNumber][yTileNumber] = currentMinimalValue;
+		this.map[yTileNumber][xTileNumber] = currentMinimalValue;
 		currentMinimals.push({x: xTileNumber, y: yTileNumber});
 
 		currentMinimalValue++;
@@ -414,7 +414,10 @@ class HeatMap{
 			currentMinimalValue++;
 		}
 		// TODO: remove
-		console.log(this.map);
+		//console.log(this.map);
+		// for(let i = 0; i < this.height; i++){
+		// 	console.log(this.map[i]);
+		// }
 		// for(let i = 0; i < this.height; i++){
 		// 	for(let j = 0; j < this.width; j++){
 		// 		console.log(this.map[i][j]);
@@ -424,8 +427,8 @@ class HeatMap{
 
 	addIfPossibleAndNeeded(x, y, currentMinimalValue, nextMinimals){
 		if(this.possibleToAdd(x, y) && !this.alreadyAdded(x, y, nextMinimals) 
-		&& !this.collisionManager.isObstacle(x, y) && this.map[x][y] > currentMinimalValue){
-			this.map[x][y] = currentMinimalValue;
+		&& !this.collisionManager.isObstacle(x, y) && this.map[y][x] > currentMinimalValue){
+			this.map[y][x] = currentMinimalValue;
 			nextMinimals.push({x:x, y:y});
 		}	
 	}
@@ -445,6 +448,95 @@ class HeatMap{
 	}
 }
 
+class Enemy{
+	constructor(name, x, y, velocity, collisionManager, screen){
+		this.name = name;
+		this.x = x;
+		this.y = y;
+		this.velocity = velocity;
+		this.collisionManager = collisionManager;
+		this.screen = screen;
+		this.image = new Image();
+		this.image.src = `${this.name}/Move/down.png`;
+		this.action = "s";
+		this.frame = 0;
+		this.lastAnimationTime = Date.now();
+	}
+
+	selectAction(){
+		const xTileNumber = Math.floor(this.x / 24) - 1;
+		const yTileNumber = Math.floor(this.y / 24);
+		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] <= 1){
+			this.action = "s";
+			return;
+		}
+
+		let selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber + 1];
+		this.action = "r";
+		if(gameDirector.heatMap.map[yTileNumber][xTileNumber - 1] < selectedTileWeight){
+			selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber - 1];
+			this.action = "l";
+		}
+		if(gameDirector.heatMap.map[yTileNumber + 1][xTileNumber] < selectedTileWeight){
+			selectedTileWeight = gameDirector.heatMap.map[yTileNumber + 1][xTileNumber];
+			this.action = "d";
+		}
+		if(gameDirector.heatMap.map[yTileNumber - 1][xTileNumber] < selectedTileWeight){
+			selectedTileWeight = gameDirector.heatMap.map[yTileNumber - 1][xTileNumber];
+			this.action = "u";
+		}
+
+		switch(this.action){
+			case "r":
+				this.image.src = `${this.name}/Move/right.png`;
+				//if(!this.collisionManager.isCollision(x + 1, y)){
+					this.x++;					
+				//}	
+				break;			
+			case "l":	
+			    this.image.src = `${this.name}/Move/left.png`;
+				this.x--;		
+				break;
+			case "d":
+				this.image.src = `${this.name}/Move/down.png`;
+				this.y++;
+				break;
+			case "u":
+				this.image.src = `${this.name}/Move/up.png`;	
+				this.y--;
+				break;
+		}
+	}
+	draw(context){
+		if(this.x < this.screen.x || this.x > this.screen.x + this.screen.canvas.width || this.y < this.screen.y || this.y > this.screen.y + this.screen.canvas.height){
+			return;
+		}
+		const currentTime = Date.now();
+		if(currentTime - this.lastAnimationTime >= 1000 / 4){
+			this.frame++;
+			if(this.frame > 4){
+				this.frame = 0;
+				this.lastAnimationTime = currentTime;
+			}
+		}
+		if(this.action == "s"){
+			this.frame = 0;
+		}
+		context.drawImage
+		(
+			this.image,
+			this.frame * this.image.width / 4,
+			0,
+			this.image.width / 4,
+			this.image.height,
+			this.x - this.screen.x,
+			this.y - this.screen.y,
+			this.image.width / 4,
+			this.image.height
+		);
+	}
+}
+
 const canvas = document.querySelector("#canvas");
 const context = canvas.getContext("2d");
 let gameDirector = {};
@@ -454,7 +546,7 @@ resize();
 characterSelection();
 
 
-function start(city, character, mist)
+function start(city, character, mist, monsters)
 {
 	//const timer = setInterval(() => update(city, character, mist), 1000/5);
 	let previousTime  = Date.now();
@@ -464,7 +556,7 @@ function start(city, character, mist)
 			const currentTime = Date.now();
 			if(currentTime - previousTime >= 1000/30){
 				previousTime = currentTime;
-				update(city, character, mist);
+				update(city, character, mist, monsters);
 			}			
 		});
 	}
@@ -518,13 +610,14 @@ function keyDown(e, character)
 	}
 }
 
-function update(city, character, mist)
+function update(city, character, mist, monsters)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
 	
 	city.draw(context);
 	character.draw(context);
 	mist.draw(context);
+	monsters[0].draw(context);
 }
 
 // -----------------Character selection menu-------------------------
@@ -634,13 +727,15 @@ function startGame(characterName){
 function OnCityImageLoaded(cityImage, screen, scale, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
 	const  collisionManager = new CollisionManager(24*scale);
-	gameDirector.heatMap = new HeatMap(city.image.width/24*scale, city.image.height/24*scale, collisionManager);
+	gameDirector.heatMap = new HeatMap(Math.floor(city.image.width/24*scale) + 1, Math.floor(city.image.height/24*scale) + 1, collisionManager);
 	const weapon = [new Weapon("Knife", 5, 1, 2), new Weapon("Pistol", 5, 2, 1)];
 	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
-
+	const monsters = [];
+	monsters.push(new Enemy("Cultist", 1500, 3500, 1,collisionManager, screen));
 	window.addEventListener("resize", resize);
 	window.addEventListener("keydown", (e) => keyDown(e, character));
+	setInterval(() => monsters[0].selectAction(), 1000/12)
 
-	start(city, character, mist);
+	start(city, character, mist, monsters);
 }
