@@ -472,6 +472,7 @@ class Enemy{
 		}
 
 		let selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber + 1];
+		const previousAction = this.action;
 		this.action = "r";
 		if(gameDirector.heatMap.map[yTileNumber][xTileNumber - 1] < selectedTileWeight){
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber - 1];
@@ -485,43 +486,64 @@ class Enemy{
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber - 1][xTileNumber];
 			this.action = "u";
 		}
-
+		if (this.action != previousAction){
+			switch(this.action){
+				case "r":
+					this.image.src = `${this.name}/Move/right.png`;
+					break;			
+				case "l":	
+					this.image.src = `${this.name}/Move/left.png`;
+					break;
+				case "d":
+					this.image.src = `${this.name}/Move/down.png`;
+					break;
+				case "u":
+					this.image.src = `${this.name}/Move/up.png`;	
+					break;
+			}
+		}
 		switch(this.action){
 			case "r":
-				this.image.src = `${this.name}/Move/right.png`;
 				//if(!this.collisionManager.isCollision(x + 1, y)){
-					this.x++;					
+					this.x += this.velocity;					
 				//}	
 				break;			
 			case "l":	
-			    this.image.src = `${this.name}/Move/left.png`;
-				this.x--;		
+				this.x -= this.velocity;		
 				break;
 			case "d":
-				this.image.src = `${this.name}/Move/down.png`;
-				this.y++;
+				this.y += this.velocity;
 				break;
 			case "u":
-				this.image.src = `${this.name}/Move/up.png`;	
-				this.y--;
+				this.y -= this.velocity;
 				break;
 		}
 	}
+
+	setFrame(){
+		const currentTime = Date.now();
+		if((currentTime - this.lastAnimationTime) < 1000 / 4){
+			return;
+		}
+
+		if(this.action == "s"){
+			this.frame = 0;
+			return;
+		}
+
+		this.frame++;
+		this.lastAnimationTime = currentTime;
+		if(this.frame >= 4){
+			this.frame = 0;				
+		}
+	}
+
 	draw(context){
 		if(this.x < this.screen.x || this.x > this.screen.x + this.screen.canvas.width || this.y < this.screen.y || this.y > this.screen.y + this.screen.canvas.height){
 			return;
 		}
-		const currentTime = Date.now();
-		if(currentTime - this.lastAnimationTime >= 1000 / 4){
-			this.frame++;
-			if(this.frame > 4){
-				this.frame = 0;
-				this.lastAnimationTime = currentTime;
-			}
-		}
-		if(this.action == "s"){
-			this.frame = 0;
-		}
+		
+		this.setFrame();
 		context.drawImage
 		(
 			this.image,
@@ -732,10 +754,10 @@ function OnCityImageLoaded(cityImage, screen, scale, characterName){
 	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
 	const monsters = [];
-	monsters.push(new Enemy("Cultist", 1500, 3500, 1,collisionManager, screen));
+	monsters.push(new Enemy("Cultist", 1500, 3500, 4,collisionManager, screen));
 	window.addEventListener("resize", resize);
 	window.addEventListener("keydown", (e) => keyDown(e, character));
-	setInterval(() => monsters[0].selectAction(), 1000/12)
+	setInterval(() => monsters[0].selectAction(), 1000/30)
 
 	start(city, character, mist, monsters);
 }
