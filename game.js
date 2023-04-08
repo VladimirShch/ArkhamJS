@@ -38,9 +38,10 @@ class GameScreen{
 
 class Character
 {	
-	constructor(characterName, x, y, velocity, screen, mapWidth, mapHeight, collisionManager, weapon)
+	constructor(characterName, health, x, y, velocity, screen, mapWidth, mapHeight, collisionManager, weapon)
 	{
 		this.characterName = characterName;
+		this.health = health;
 		this.x = x;
 		this.y = y;
 		this.velocity = velocity;
@@ -54,14 +55,22 @@ class Character
 		this.lastAnimationY = y;
 		this.framesInAnimation = 4; // Потому что 4 изображения всего на анимацию
 		this.frame = 0;
+
 		this.image = new Image();
 		this.image.src = `${this.characterName}/Move/down.png`;
 		this.previousDirection = "d";
 		this.lastAnimationTime = Date.now();
+
+		this.wound = null;
 	}
 	hit(){
 		this.activeWeapon.hit(this.previousDirection, this.x - this.screen.x, this.y - this.screen.y);
 	}
+
+	takeDamage(damage){
+		this.wound = new Wound(this.previousDirection);
+	}
+
 	move(direction)
 	{
 		if(this.activeWeapon.isHitting()){
@@ -183,6 +192,14 @@ class Character
 			this.activeWeapon.draw(context);
 		}
 
+		if(this.wound && this.wound.frame == -1){
+			this.wound = null;
+		}
+
+		if(this.wound){
+			this.wound.draw(this.x - this.screen.x, this.y - this.screen.y, context);
+		}
+
 		this.setAnimation();
 
 		context.drawImage
@@ -201,10 +218,11 @@ class Character
 }
 
 class Weapon{
-	constructor(name, frames, hitRate, animationVelocity){
+	constructor(name, frames, hitRate, range, animationVelocity){
 		this.name = name;
 		this.frames = frames;
 		this.hitRate = hitRate;
+		this.range = range;
 		this.animationVelocity = animationVelocity;
 		this.imageRight = new Image();
 		this.imageRight.src = `Weapon/${this.name}/right.png`;
@@ -367,29 +385,32 @@ class CollisionManager{
 }
 
 class HeatMap{
-	constructor(width, height, collisionManager){
+	constructor(width, height, pixelsInTile, collisionManager){
 		this.width = width;
 		this.height = height;
+		this.pixelsInTile = pixelsInTile;
 		this.collisionManager = collisionManager;
 		this.map = [];
-		for(let i = 0; i < height; i++){
+		for(let i = 0; i < this.height; i++){
 			this.map[i] = [];
 		}
+
 		this.maxValue = Math.floor(Math.max(width, height)) + 1;
 		this.lastX = 0;
 		this.lastY = 0;
 	}
 
 	build(x, y){
-		const xTileNumber = Math.floor(x / 24) - 1;
-		const yTileNumber = Math.floor(y / 24);
+		const xTileNumber = Math.floor(x / this.pixelsInTile);
+		const yTileNumber = Math.floor(y / this.pixelsInTile);
 		if(xTileNumber == this.lastX && yTileNumber == this.lastY){
 			return;
 		}
 		this.lastX = xTileNumber;
 		this.lastY = yTileNumber;
-		for(let i = 0; i < this.width; i++){
-			for(let j = 0; j < this.height; j++){
+
+		for(let i = 0; i < this.height; i++){
+			for(let j = 0; j < this.width; j++){
 				this.map[i][j] = this.maxValue;
 			}
 		}
@@ -449,13 +470,15 @@ class HeatMap{
 }
 
 class Enemy{
-	constructor(name, x, y, velocity, collisionManager, screen){
+	constructor(name, health, x, y, velocity, collisionManager, screen, pixelsInTile){
 		this.name = name;
+		this.health = health;
 		this.x = x;
 		this.y = y;
 		this.velocity = velocity;
 		this.collisionManager = collisionManager;
 		this.screen = screen;
+		this.pixelsInTile = pixelsInTile;
 		this.image = new Image();
 		this.image.src = `${this.name}/Move/down.png`;
 		this.action = "s";
@@ -464,8 +487,8 @@ class Enemy{
 	}
 
 	selectAction(){
-		const xTileNumber = Math.floor(this.x / 24) - 1;
-		const yTileNumber = Math.floor(this.y / 24);
+		const xTileNumber = Math.floor(this.x / this.pixelsInTile);
+		const yTileNumber = Math.floor(this.y / this.pixelsInTile);
 		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] <= 1){
 			this.action = "s";
 			return;
@@ -486,6 +509,12 @@ class Enemy{
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber - 1][xTileNumber];
 			this.action = "u";
 		}
+		// Не ходить через препятствия
+		// if(selectedTileWeight >= gameDirector.heatMap.maxValue){
+		// 	this.action = "s";
+		// 	return;
+		// }
+
 		if (this.action != previousAction){
 			switch(this.action){
 				case "r":
@@ -544,6 +573,7 @@ class Enemy{
 		}
 		
 		this.setFrame();
+
 		context.drawImage
 		(
 			this.image,
@@ -556,6 +586,48 @@ class Enemy{
 			this.image.width / 4,
 			this.image.height
 		);
+	}
+}
+
+class Wound{
+	constructor(direction){
+		this.image = new Image();
+		this.lastTime = Date.now();
+		this.frame = 0;
+		switch(direction){
+			case "r":
+				this.image.src = "wound_right.png"
+				break;
+			case "l":
+				this.image.src = "wound_left.png"
+				break;
+			case "d":
+				this.image.src = "wound_down.png"
+				break;
+			case "u":
+				this.image.src = "wound_up.png"
+				break;
+		}
+	}
+
+	setFrame(){
+		let currentTime = Date.now();
+		if(currentTime - this.lastTime < 1000/16){
+			return;
+		}
+		this.lastTime = currentTime;
+		this.frame++;
+		if(this.frame > 3){
+			this.frame = -1;
+		}
+	}
+
+	draw(x, y, context){
+		if(this.frame < 0){
+			return;
+		}
+		this.setFrame();
+		context.drawImage(this.image, this.frame * this.image.width / 4, 0, this.image.width / 4, this.image.height, x, y, this.image.width / 4, this.image.height);
 	}
 }
 
@@ -628,6 +700,9 @@ function keyDown(e, character)
 			if(character.weapon.length > 1){
 				character.activeWeapon = character.weapon[1];
 			}
+			break;
+		case 51:
+			character.takeDamage(1);
 			break;
 	}
 }
@@ -738,26 +813,26 @@ function startGame(characterName){
 	canvas.onclick = null;
 
 	const screen = new GameScreen(canvas, 2/3);
-	const scale = 1.5;
 	const cityImage = new Image();
-	cityImage.onload = (e) => OnCityImageLoaded(e.target, screen, scale, characterName);
+	cityImage.onload = (e) => OnCityImageLoaded(e.target, screen, characterName);
 	cityImage.src = "Map_3.png";
 	
 }
 
 // Переделать - вынесено в эту функцию из-за того, что видимо до создания персонажа не успевает карта города загрузиться и размеры 0 получаются
-function OnCityImageLoaded(cityImage, screen, scale, characterName){
+function OnCityImageLoaded(cityImage, screen, characterName){
+	const scale = 1.5;
 	const city = new City(cityImage, 0, 0, screen, scale);
 	const  collisionManager = new CollisionManager(24*scale);
-	gameDirector.heatMap = new HeatMap(Math.floor(city.image.width/24*scale) + 1, Math.floor(city.image.height/24*scale) + 1, collisionManager);
-	const weapon = [new Weapon("Knife", 5, 1, 2), new Weapon("Pistol", 5, 2, 1)];
-	const character = new Character(characterName, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
+	gameDirector.heatMap = new HeatMap(Math.floor(city.image.width*scale/24) + 1, Math.floor(city.image.height*scale/24) + 1, 24*scale, collisionManager);
+	const weapon = [new Weapon("Knife", 5, 1, 1, 2), new Weapon("Pistol", 5, 2, 400, 1)];
+	const character = new Character(characterName, 5, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
-	const monsters = [];
-	monsters.push(new Enemy("Cultist", 1500, 3500, 4,collisionManager, screen));
+	gameDirector.monsters = [];
+	gameDirector.monsters.push(new Enemy("Cultist", 3, 1500, 3500, 4, collisionManager, screen, 24*scale));
 	window.addEventListener("resize", resize);
 	window.addEventListener("keydown", (e) => keyDown(e, character));
-	setInterval(() => monsters[0].selectAction(), 1000/30)
+	setInterval(() => gameDirector.monsters.forEach(m => m.selectAction()), 1000/30)
 
-	start(city, character, mist, monsters);
+	start(city, character, mist, gameDirector.monsters);
 }
