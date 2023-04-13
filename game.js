@@ -187,9 +187,49 @@ class Character
 	}	
 
 	draw(context){
-
 		if(this.activeWeapon.isHitting()){
 			this.activeWeapon.draw(context);
+
+			// Вообще не отсюда, тут про отрисовку только по идее
+			if(this.activeWeapon.damage && !this.activeWeapon.damage.delivered){
+				let startX, endX, startY, endY;
+				if(this.previousDirection === "r"){
+					startX = this.x + this.image.width / this.framesInAnimation;
+					endX = startX + this.activeWeapon.range;
+					startY = this.y;
+					endY = this.y + this.image.height;
+				}
+				else if(this.previousDirection === "l"){
+					startX = this.x - this.activeWeapon.range;
+					endX = this.x;
+					startY = this.y;
+					endY = this.y + this.image.height;
+				}
+				else if(this.previousDirection === "d"){
+					startX = this.x;
+					endX = this.x + this.image.width / this.framesInAnimation;
+					startY = this.y + this.image.height;
+					endY = startY + this.activeWeapon.range;
+				}
+				else if(this.previousDirection === "u"){
+					startX = this.x;
+					endX = this.x + this.image.width / this.framesInAnimation;
+					startY = this.y - this.activeWeapon.range;
+					endY = this.y;
+				}
+
+				// TODO sort by distance
+				for (let m of gameDirector.monsters)
+				{
+					// TODO явно 4 задано!
+					if(m.x <= endX && m.x + m.image.width / 4 >= startX && m.y <= endY && m.y + m.image.height >= startY){
+						m.takeDamage(this.activeWeapon.damage.value);
+						this.activeWeapon.damage.delivered = true;
+						break;
+					}
+				}
+				
+			}
 		}
 
 		if(this.wound && this.wound.frame == -1){
@@ -205,22 +245,23 @@ class Character
 		context.drawImage
 		(
 			this.image,
-			this.frame * this.image.width / 4,
+			this.frame * this.image.width / this.framesInAnimation,
 			0,
-			this.image.width / 4,
+			this.image.width / this.framesInAnimation,
 			this.image.height,
 			this.x - this.screen.x,
 			this.y - this.screen.y,
-			this.image.width / 4,
+			this.image.width / this.framesInAnimation,
 			this.image.height
 		);
 	}
 }
 
 class Weapon{
-	constructor(name, frames, hitRate, range, animationVelocity){
+	constructor(name, frames, hittingFrame, hitRate, range, animationVelocity){
 		this.name = name;
 		this.frames = frames;
+		this.hittingFrame = hittingFrame;
 		this.hitRate = hitRate;
 		this.range = range;
 		this.animationVelocity = animationVelocity;
@@ -237,7 +278,9 @@ class Weapon{
 		this.currentFrame = -1;
 		this.x = 0;
 		this.y = 0;
+		this.damage = null; 
 	}
+
 	hit(direction, x, y){
 		switch(direction){
 			case "r":
@@ -262,14 +305,14 @@ class Weapon{
 		this.x = x;
 		this.y = y;
 	}
+
 	// Попадания ещё для каждого оружия по-своему рассчитывать надо. Да и урон. И скорость. Возможно, иконка оружия для меню или инвентаря
 	draw(context){
 		if(!this.isHitting()){
 			return;
 		}
 		// TODO: remove
-		console.log(this.currentFrame);
-		
+		//console.log(this.currentFrame);		
 		const currentTime = Date.now();
 		if(currentTime - this.lastAnimationTime >= 1000/ this.animationVelocity / this.frames){
 			this.lastAnimationTime = currentTime;
@@ -281,11 +324,24 @@ class Weapon{
 			return;
 		}
 
+		if(!this.damage && this.currentFrame - 1 == this.hittingFrame){
+			this.damage = new Damage(this.hitRate);
+		}
+		if(this.damage && (this.damage.delivered || this.currentFrame - 1 != this.hittingFrame)){
+			this.damage = null;
+		}
+
 		context.drawImage(this.activeImage, (this.currentFrame-1) * this.activeImage.width / this.frames, 0, this.activeImage.width / this.frames, this.activeImage.height, this.x, this.y, this.activeImage.width / this.frames, this.activeImage.height);
 	}
 	isHitting() { return this.currentFrame >= 0; }
 }
 
+class Damage{
+	constructor(value){
+		this.value = value;
+		this.delivered = false;
+	}
+}
 class Mist{
 	constructor(screen){
 		this.screen = screen;
@@ -484,9 +540,27 @@ class Enemy{
 		this.action = "s";
 		this.frame = 0;
 		this.lastAnimationTime = Date.now();
+		this.wound = null;
+	}
+	
+	isAlive(){
+		return this.health > 0;
+	}
+
+	takeDamage(damage){
+		this.health -= damage;
+		const direction = this.action != "s" ? this.action 
+			: this.image.src == `${this.name}/Move/right.png` ? "r" 
+			: this.image.src == `${this.name}/Move/left.png` ? "l" 
+			: this.image.src == `${this.name}/Move/up.png` ? "u" : "d";
+		this.wound = new Wound(direction);
 	}
 
 	selectAction(){
+		if(!this.isAlive()){
+			return;
+		}
+
 		const xTileNumber = Math.floor(this.x / this.pixelsInTile);
 		const yTileNumber = Math.floor(this.y / this.pixelsInTile);
 		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] <= 1){
@@ -568,10 +642,24 @@ class Enemy{
 	}
 
 	draw(context){
+		if(!this.isAlive()){
+			return;
+		}
+
 		if(this.x < this.screen.x || this.x > this.screen.x + this.screen.canvas.width || this.y < this.screen.y || this.y > this.screen.y + this.screen.canvas.height){
 			return;
 		}
 		
+		// --- Wound ---
+		if(this.wound && this.wound.frame == -1){
+			this.wound = null;
+		}
+
+		if(this.wound){
+			this.wound.draw(this.x - this.screen.x, this.y - this.screen.y, context);
+		}
+		// -------
+
 		this.setFrame();
 
 		context.drawImage
@@ -640,7 +728,7 @@ resize();
 characterSelection();
 
 
-function start(city, character, mist, monsters)
+function start(city, character, mist)
 {
 	//const timer = setInterval(() => update(city, character, mist), 1000/5);
 	let previousTime  = Date.now();
@@ -650,7 +738,7 @@ function start(city, character, mist, monsters)
 			const currentTime = Date.now();
 			if(currentTime - previousTime >= 1000/30){
 				previousTime = currentTime;
-				update(city, character, mist, monsters);
+				update(city, character, mist);
 			}			
 		});
 	}
@@ -707,14 +795,15 @@ function keyDown(e, character)
 	}
 }
 
-function update(city, character, mist, monsters)
+function update(city, character, mist)
 {
 	context.clearRect(0, 0, canvas.width, canvas.height);
 	
 	city.draw(context);
 	character.draw(context);
 	mist.draw(context);
-	monsters[0].draw(context);
+	gameDirector.monsters.forEach(m => m.draw(context));
+	//monsters[0].draw(context);
 }
 
 // -----------------Character selection menu-------------------------
@@ -825,14 +914,34 @@ function OnCityImageLoaded(cityImage, screen, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
 	const  collisionManager = new CollisionManager(24*scale);
 	gameDirector.heatMap = new HeatMap(Math.floor(city.image.width*scale/24) + 1, Math.floor(city.image.height*scale/24) + 1, 24*scale, collisionManager);
-	const weapon = [new Weapon("Knife", 5, 1, 1, 2), new Weapon("Pistol", 5, 2, 400, 1)];
+	const weapon = [new Weapon("Knife", 5, 3, 1, 1, 2), new Weapon("Pistol", 5, 4, 2, 400, 1)];
 	const character = new Character(characterName, 5, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
+	gameDirector.maxMonsters = 5;
 	gameDirector.monsters = [];
 	gameDirector.monsters.push(new Enemy("Cultist", 3, 1500, 3500, 4, collisionManager, screen, 24*scale));
 	window.addEventListener("resize", resize);
 	window.addEventListener("keydown", (e) => keyDown(e, character));
-	setInterval(() => gameDirector.monsters.forEach(m => m.selectAction()), 1000/30)
+	setInterval(() => {
+		gameDirector.monsters = gameDirector.monsters.filter(m => m.isAlive());
+		gameDirector.monsters.forEach(m => m.selectAction());
+	} , 1000/30);
 
-	start(city, character, mist, gameDirector.monsters);
+	setInterval(() =>{
+		if(gameDirector.monsters.length < gameDirector.maxMonsters){
+			let ok = false;
+			let x, y;
+			while(!ok){
+				x = Math.floor(Math.random()*10000 % (city.image.width * scale));
+				y = Math.floor(Math.random()*10000 % (city.image.height * scale));
+				const xTileNumber = Math.floor(x / (24*scale));
+				const yTileNumber = Math.floor(y / (24*scale));
+				if(x <= city.image.width * scale && y <= city.image.height * scale && gameDirector.heatMap.map[yTileNumber][xTileNumber] != gameDirector.heatMap.maxValue){
+					ok = true;
+				}
+			}
+			gameDirector.monsters.push(new Enemy("Cultist", 3, x, y, 4, collisionManager, screen, 24*scale));
+		}
+	}, 10000);
+	start(city, character, mist);
 }
