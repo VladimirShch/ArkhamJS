@@ -64,10 +64,11 @@ class Character
 		this.wound = null;
 	}
 	hit(){
-		this.activeWeapon.hit(this.previousDirection, this.x - this.screen.x, this.y - this.screen.y);
+		this.activeWeapon.hit(this.previousDirection);
 	}
 
 	takeDamage(damage){
+		this.health -= damage;
 		this.wound = new Wound(this.previousDirection);
 	}
 
@@ -186,49 +187,57 @@ class Character
 		this.lastAnimationY = this.y;
 	}	
 
+	findTarget(){
+		let startX, endX, startY, endY;
+		
+		if(this.previousDirection === "r"){
+			startX = this.x + this.image.width / this.framesInAnimation;
+			endX = startX + this.activeWeapon.range;
+			startY = this.y;
+			endY = this.y + this.image.height;
+		}
+		else if(this.previousDirection === "l"){
+			startX = this.x - this.activeWeapon.range;
+			endX = this.x;
+			startY = this.y;
+			endY = this.y + this.image.height;
+		}
+		else if(this.previousDirection === "d"){
+			startX = this.x;
+			endX = this.x + this.image.width / this.framesInAnimation;
+			startY = this.y + this.image.height;
+			endY = startY + this.activeWeapon.range;
+		}
+		else if(this.previousDirection === "u"){
+			startX = this.x;
+			endX = this.x + this.image.width / this.framesInAnimation;
+			startY = this.y - this.activeWeapon.range;
+			endY = this.y;
+		}
+
+		// TODO sort by distance
+		for (let m of gameDirector.monsters)
+		{
+			// TODO явно 4 задано!
+			if(m.x <= endX && m.x + m.image.width / m.framesInAnimation >= startX && m.y <= endY && m.y + m.image.height >= startY){
+				return m;
+			}
+		}
+
+		return null;
+	}
+
 	draw(context){
 		if(this.activeWeapon.isHitting()){
-			this.activeWeapon.draw(context);
+			this.activeWeapon.draw(context, this.x - this.screen.x, this.y - this.screen.y);
 
 			// Вообще не отсюда, тут про отрисовку только по идее
 			if(this.activeWeapon.damage && !this.activeWeapon.damage.delivered){
-				let startX, endX, startY, endY;
-				if(this.previousDirection === "r"){
-					startX = this.x + this.image.width / this.framesInAnimation;
-					endX = startX + this.activeWeapon.range;
-					startY = this.y;
-					endY = this.y + this.image.height;
+				const target = this.findTarget();
+				if(target){
+					target.takeDamage(this.activeWeapon.damage.value);
+					this.activeWeapon.damage.delivered = true;
 				}
-				else if(this.previousDirection === "l"){
-					startX = this.x - this.activeWeapon.range;
-					endX = this.x;
-					startY = this.y;
-					endY = this.y + this.image.height;
-				}
-				else if(this.previousDirection === "d"){
-					startX = this.x;
-					endX = this.x + this.image.width / this.framesInAnimation;
-					startY = this.y + this.image.height;
-					endY = startY + this.activeWeapon.range;
-				}
-				else if(this.previousDirection === "u"){
-					startX = this.x;
-					endX = this.x + this.image.width / this.framesInAnimation;
-					startY = this.y - this.activeWeapon.range;
-					endY = this.y;
-				}
-
-				// TODO sort by distance
-				for (let m of gameDirector.monsters)
-				{
-					// TODO явно 4 задано!
-					if(m.x <= endX && m.x + m.image.width / 4 >= startX && m.y <= endY && m.y + m.image.height >= startY){
-						m.takeDamage(this.activeWeapon.damage.value);
-						this.activeWeapon.damage.delivered = true;
-						break;
-					}
-				}
-				
 			}
 		}
 
@@ -276,12 +285,10 @@ class Weapon{
 		this.activeImage = null;
 		this.lastAnimationTime = Date.now();
 		this.currentFrame = -1;
-		this.x = 0;
-		this.y = 0;
 		this.damage = null; 
 	}
 
-	hit(direction, x, y){
+	hit(direction){
 		switch(direction){
 			case "r":
 				//this.image.src = `Weapon/${this.name}/right.png`;
@@ -302,12 +309,10 @@ class Weapon{
 		}
 		this.lastAnimationTime = Date.now();
 		this.currentFrame = 0;
-		this.x = x;
-		this.y = y;
 	}
 
 	// Попадания ещё для каждого оружия по-своему рассчитывать надо. Да и урон. И скорость. Возможно, иконка оружия для меню или инвентаря
-	draw(context){
+	draw(context, x, y){
 		if(!this.isHitting()){
 			return;
 		}
@@ -331,7 +336,7 @@ class Weapon{
 			this.damage = null;
 		}
 
-		context.drawImage(this.activeImage, (this.currentFrame-1) * this.activeImage.width / this.frames, 0, this.activeImage.width / this.frames, this.activeImage.height, this.x, this.y, this.activeImage.width / this.frames, this.activeImage.height);
+		context.drawImage(this.activeImage, (this.currentFrame-1) * this.activeImage.width / this.frames, 0, this.activeImage.width / this.frames, this.activeImage.height, x, y, this.activeImage.width / this.frames, this.activeImage.height);
 	}
 	isHitting() { return this.currentFrame >= 0; }
 }
@@ -452,18 +457,31 @@ class HeatMap{
 		}
 
 		this.maxValue = Math.floor(Math.max(width, height)) + 1;
+		this.lastXTile = 0;
+		this.lastYTile = 0;
+
 		this.lastX = 0;
 		this.lastY = 0;
+	}
+	
+	// Локальная карта - по пикселю, когда враг уже подошёл глобально и теперь надо только сократить листанцию
+	buildLocal(x, y, width, height){
+		if(x == this.lastX && y == this.lastY){
+			return;
+		}
+		this.lastX = x;
+		this.lastY = y;
+		const localSize = this.pixelsInTile*3; // в квадрате 3*3 будем
 	}
 
 	build(x, y){
 		const xTileNumber = Math.floor(x / this.pixelsInTile);
 		const yTileNumber = Math.floor(y / this.pixelsInTile);
-		if(xTileNumber == this.lastX && yTileNumber == this.lastY){
+		if(xTileNumber == this.lastXTile && yTileNumber == this.lastYTile){
 			return;
 		}
-		this.lastX = xTileNumber;
-		this.lastY = yTileNumber;
+		this.lastXTile = xTileNumber;
+		this.lastYTile = yTileNumber;
 
 		for(let i = 0; i < this.height; i++){
 			for(let j = 0; j < this.width; j++){
@@ -526,7 +544,7 @@ class HeatMap{
 }
 
 class Enemy{
-	constructor(name, health, x, y, velocity, collisionManager, screen, pixelsInTile){
+	constructor(name, health, x, y, velocity, collisionManager, screen, pixelsInTile, weapon){
 		this.name = name;
 		this.health = health;
 		this.x = x;
@@ -535,17 +553,39 @@ class Enemy{
 		this.collisionManager = collisionManager;
 		this.screen = screen;
 		this.pixelsInTile = pixelsInTile;
+		this.weapon = weapon;
 		this.image = new Image();
 		this.image.src = `${this.name}/Move/down.png`;
 		this.action = "s";
 		this.frame = 0;
 		this.lastAnimationTime = Date.now();
 		this.wound = null;
+		this.framesInAnimation = 4;
 	}
 	
 	isAlive(){
 		return this.health > 0;
 	}
+	
+	getDirection(){
+		if(this.image.src.includes(`${this.name}/Move/right.png`)){
+			return "r"
+		}
+		if(this.image.src.includes(`${this.name}/Move/left.png`)){
+			return "l"
+		}
+		if(this.image.src.includes(`${this.name}/Move/down.png`)){
+			return "d"
+		}
+		if(this.image.src.includes(`${this.name}/Move/up.png`)){
+			return "u"
+		}
+	}
+
+	turnRight() {this.image.src = `${this.name}/Move/right.png`;}
+	turnLeft() {this.image.src = `${this.name}/Move/left.png`;}
+	turnUp() {this.image.src = `${this.name}/Move/up.png`;}
+	turnDown() {this.image.src = `${this.name}/Move/down.png`;}
 
 	takeDamage(damage){
 		this.health -= damage;
@@ -557,58 +597,122 @@ class Enemy{
 	}
 
 	selectAction(){
-		if(!this.isAlive()){
-			return;
-		}
-
 		const xTileNumber = Math.floor(this.x / this.pixelsInTile);
 		const yTileNumber = Math.floor(this.y / this.pixelsInTile);
-		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] <= 1){
-			this.action = "s";
-			return;
+		
+		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] === 1){
+			if(gameDirector.heatMap.map[yTileNumber + 1][xTileNumber] === 0){
+				this.turnDown();
+			}
+			else if(gameDirector.heatMap.map[yTileNumber - 1][xTileNumber] === 0){
+				this.turnUp();
+			}
+			else if(gameDirector.heatMap.map[yTileNumber][xTileNumber + 1] === 0){
+				this.turnRight();
+			}
+			else if(gameDirector.heatMap.map[yTileNumber][xTileNumber - 1] === 0){
+				this.turnLeft();
+			}
+			return "h";
+		}
+
+		if(gameDirector.heatMap.map[yTileNumber][xTileNumber] === 0){
+			if(this.x >= gameDirector.character.x + gameDirector.character.image.width / gameDirector.character.framesInAnimation 
+				&& this.x + this.image.width / this.framesInAnimation >= gameDirector.character.x + gameDirector.character.image.width / gameDirector.character.framesInAnimation){
+				this.turnLeft();
+			}
+			else if(this.x <= gameDirector.character.x && this.x + this.image.width / this.framesInAnimation <= gameDirector.character.x){
+				this.turnRight();
+			}
+			else if(this.y >= gameDirector.character.y + gameDirector.character.image.height 
+					&& this.y + this.image.height >= gameDirector.character.y + gameDirector.character.image.height){
+				this.turnUp();
+			}
+			else if(this.y <= gameDirector.character.y && this.y + this.image.height <= gameDirector.character.y){
+				this.turnDown;
+			}
+			return "h";
 		}
 
 		let selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber + 1];
-		const previousAction = this.action;
-		this.action = "r";
+		let currentAction =  "r";
+
 		if(gameDirector.heatMap.map[yTileNumber][xTileNumber - 1] < selectedTileWeight){
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber][xTileNumber - 1];
-			this.action = "l";
+			currentAction = "l";
 		}
 		if(gameDirector.heatMap.map[yTileNumber + 1][xTileNumber] < selectedTileWeight){
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber + 1][xTileNumber];
-			this.action = "d";
+			currentAction = "d";
 		}
 		if(gameDirector.heatMap.map[yTileNumber - 1][xTileNumber] < selectedTileWeight){
 			selectedTileWeight = gameDirector.heatMap.map[yTileNumber - 1][xTileNumber];
-			this.action = "u";
+			currentAction = "u";
 		}
+
 		// Не ходить через препятствия
 		// if(selectedTileWeight >= gameDirector.heatMap.maxValue){
-		// 	this.action = "s";
+		// 	currentAction = "s";
 		// 	return;
 		// }
 
-		if (this.action != previousAction){
-			switch(this.action){
+		return currentAction;
+	}
+
+	selectAndPerformAction(){
+		if(!this.isAlive()){
+			return;
+		}
+		// Если совершается удар, никакого выбора действий
+		if(this.weapon.isHitting()){
+			return;
+		}
+
+		const currentAction = this.selectAction();
+		
+		if (currentAction != this.action && currentAction != "h" && currentAction != "s"){
+			switch(currentAction){
 				case "r":
-					this.image.src = `${this.name}/Move/right.png`;
+					this.turnRight();
 					break;			
 				case "l":	
-					this.image.src = `${this.name}/Move/left.png`;
+					this.turnLeft();
 					break;
 				case "d":
-					this.image.src = `${this.name}/Move/down.png`;
+					this.turnDown();
 					break;
 				case "u":
-					this.image.src = `${this.name}/Move/up.png`;	
+					this.turnUp();;	
 					break;
 			}
 		}
-		switch(this.action){
+
+		// щас костыли будут, чтобы подскочить окончательно
+		if(currentAction === "h"){
+			const direction = this.getDirection();
+			if(direction === "r" && this.x + this.image.width / this.framesInAnimation < gameDirector.character.x - 1){
+				this.x = gameDirector.character.x - this.image.width / this.framesInAnimation - 1;
+			}
+			else if(direction === "l" && this.x > gameDirector.character.x + gameDirector.character.image.width / gameDirector.character.framesInAnimation + 1){
+				this.x = gameDirector.character.x + gameDirector.character.image.width / gameDirector.character.framesInAnimation + 1;
+			}
+			else if(direction === "d" && this.y + this.image.height < gameDirector.character.y - 1){
+				this.y =  gameDirector.character.y - this.image.height - 1;
+			}
+			else if(direction === "u" && this.y > gameDirector.character.y + gameDirector.character.image.height + 1){
+				this.y = gameDirector.character.y + gameDirector.character.image.height + 1;
+			}
+			this.action = currentAction;
+			
+			this.weapon.hit(direction);
+			
+			return;
+		}
+
+		switch(currentAction){
 			case "r":
 				//if(!this.collisionManager.isCollision(x + 1, y)){
-					this.x += this.velocity;					
+				this.x += this.velocity;					
 				//}	
 				break;			
 			case "l":	
@@ -621,25 +725,71 @@ class Enemy{
 				this.y -= this.velocity;
 				break;
 		}
+
+		this.action = currentAction;
 	}
 
 	setFrame(){
 		const currentTime = Date.now();
-		if((currentTime - this.lastAnimationTime) < 1000 / 4){
+		if((currentTime - this.lastAnimationTime) < 1000 / this.framesInAnimation){
 			return;
 		}
 
-		if(this.action == "s"){
+		if(this.action == "s" || this.action == "h"){
 			this.frame = 0;
 			return;
 		}
 
 		this.frame++;
 		this.lastAnimationTime = currentTime;
-		if(this.frame >= 4){
+		if(this.frame >= this.framesInAnimation){
 			this.frame = 0;				
 		}
 	}
+
+	findTarget(){
+		let startX, endX, startY, endY;
+		const direction = this.getDirection();
+		if(direction === "r"){
+			startX = this.x + this.image.width / this.framesInAnimation;
+			endX = startX + this.weapon.range;
+			startY = this.y;
+			endY = this.y + this.image.height;
+		}
+		else if(direction === "l"){
+			startX = this.x - this.weapon.range;
+			endX = this.x;
+			startY = this.y;
+			endY = this.y + this.image.height;
+		}
+		else if(direction === "d"){
+			startX = this.x;
+			endX = this.x + this.image.width / this.framesInAnimation;
+			startY = this.y + this.image.height;
+			endY = startY + this.weapon.range;
+		}
+		else if(direction === "u"){
+			startX = this.x;
+			endX = this.x + this.image.width / this.framesInAnimation;
+			startY = this.y - this.weapon.range;
+			endY = this.y;
+		}
+
+		// TODO sort by distance
+		// for (let m of gameDirector.characters)
+		// {
+		// 	// TODO явно 4 задано!
+		// 	if(m.x <= endX && m.x + m.image.width / m.framesInAnimation >= startX && m.y <= endY && m.y + m.image.height >= startY){
+		// 		return m;
+		// 	}
+		// }
+		if(gameDirector.character.x <= endX && gameDirector.character.x + gameDirector.character.image.width / gameDirector.character.framesInAnimation >= startX && gameDirector.character.y <= endY && gameDirector.character.y + gameDirector.character.image.height >= startY){
+			return gameDirector.character;
+		}
+
+		return null;
+	}
+
 
 	draw(context){
 		if(!this.isAlive()){
@@ -650,6 +800,19 @@ class Enemy{
 			return;
 		}
 		
+		if(this.weapon.isHitting()){
+			this.weapon.draw(context, this.x - this.screen.x, this.y - this.screen.y);
+
+			// Вообще не отсюда, тут про отрисовку только по идее
+			if(this.weapon.damage && !this.weapon.damage.delivered){
+				const target = this.findTarget();
+				if(target){
+					target.takeDamage(this.weapon.damage.value);
+					this.weapon.damage.delivered = true;
+				}
+			}
+		}
+
 		// --- Wound ---
 		if(this.wound && this.wound.frame == -1){
 			this.wound = null;
@@ -665,13 +828,13 @@ class Enemy{
 		context.drawImage
 		(
 			this.image,
-			this.frame * this.image.width / 4,
+			this.frame * this.image.width / this.framesInAnimation,
 			0,
-			this.image.width / 4,
+			this.image.width / this.framesInAnimation,
 			this.image.height,
 			this.x - this.screen.x,
 			this.y - this.screen.y,
-			this.image.width / 4,
+			this.image.width / this.framesInAnimation,
 			this.image.height
 		);
 	}
@@ -733,6 +896,9 @@ function start(city, character, mist)
 	//const timer = setInterval(() => update(city, character, mist), 1000/5);
 	let previousTime  = Date.now();
 	function animate(){
+		if(gameDirector.gameFinished){
+			return;
+		}
 		requestAnimationFrame(() => {
 			requestAnimationFrame(animate);
 			const currentTime = Date.now();
@@ -790,7 +956,7 @@ function keyDown(e, character)
 			}
 			break;
 		case 51:
-			character.takeDamage(1);
+			character.takeDamage(0);
 			break;
 	}
 }
@@ -808,6 +974,9 @@ function update(city, character, mist)
 
 // -----------------Character selection menu-------------------------
 function characterSelection(){
+	
+	context.clearRect(0, 0, canvas.width, canvas.height);
+
 	const titleWidth = 500,
 		  titleHeight = 100;
 	
@@ -850,7 +1019,6 @@ function characterSelection(){
 	}
 
 	function drawMenu(){
-		
 		context.drawImage(headerImage, canvas.width / 2 - titleWidth / 2, 0);
 		
 		characters.forEach((character, number) => {
@@ -914,20 +1082,28 @@ function OnCityImageLoaded(cityImage, screen, characterName){
 	const city = new City(cityImage, 0, 0, screen, scale);
 	const  collisionManager = new CollisionManager(24*scale);
 	gameDirector.heatMap = new HeatMap(Math.floor(city.image.width*scale/24) + 1, Math.floor(city.image.height*scale/24) + 1, 24*scale, collisionManager);
-	const weapon = [new Weapon("Knife", 5, 3, 1, 1, 2), new Weapon("Pistol", 5, 4, 2, 400, 1)];
+	const weapon = [new Weapon("Knife", 5, 3, 1, 5, 2), new Weapon("Pistol", 5, 4, 2, 400, 1)];
 	const character = new Character(characterName, 5, 280*scale, 300*scale, 5, screen, city.image.width*scale, city.image.height*scale, collisionManager, weapon); // 4000 5000 было image.widt image.height
 	const mist = new Mist(screen);
+	gameDirector.character = character; // TODO: поместить heatMap в персонажа
 	gameDirector.maxMonsters = 5;
 	gameDirector.monsters = [];
-	gameDirector.monsters.push(new Enemy("Cultist", 3, 1500, 3500, 4, collisionManager, screen, 24*scale));
+	gameDirector.monsters.push(new Enemy("Cultist", 3, 1500, 3500, 4, collisionManager, screen, 24*scale, new Weapon("Knife", 5, 3, 1, 1, 3)));
+	
 	window.addEventListener("resize", resize);
-	window.addEventListener("keydown", (e) => keyDown(e, character));
-	setInterval(() => {
+	window.addEventListener("keydown", onKeyDown);
+	
+	gameDirector.mainTimer = setInterval(() => {
 		gameDirector.monsters = gameDirector.monsters.filter(m => m.isAlive());
-		gameDirector.monsters.forEach(m => m.selectAction());
+		gameDirector.monsters.forEach(m => m.selectAndPerformAction());
+		// Условия поражения
+		if(gameDirector.character.health <= 0){
+			clearGame();
+			characterSelection();
+		}
 	} , 1000/30);
 
-	setInterval(() =>{
+	gameDirector.monsterRespawnTimer = setInterval(() =>{
 		if(gameDirector.monsters.length < gameDirector.maxMonsters){
 			let ok = false;
 			let x, y;
@@ -940,8 +1116,21 @@ function OnCityImageLoaded(cityImage, screen, characterName){
 					ok = true;
 				}
 			}
-			gameDirector.monsters.push(new Enemy("Cultist", 3, x, y, 4, collisionManager, screen, 24*scale));
+			gameDirector.monsters.push(new Enemy("Cultist", 3, x, y, 4, collisionManager, screen, 24*scale, new Weapon("Knife", 5, 2, 1, 5, 3)));
 		}
 	}, 10000);
+	
+	function onKeyDown(e){
+		keyDown(e, character);
+	}
+
+	function  clearGame(){
+		window.removeEventListener("resize", resize);
+		window.removeEventListener("keydown", onKeyDown);
+		clearInterval(gameDirector.mainTimer);
+		clearInterval(gameDirector.monsterRespawnTimer);
+		gameDirector.gameFinished = true;
+	}
+
 	start(city, character, mist);
 }
